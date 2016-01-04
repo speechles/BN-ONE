@@ -65,8 +65,30 @@ Sub initGlobals()
 
     GetGlobalAA().AddReplace("rokuUniqueId", device.GetDeviceUniqueId())
 
+    If (major >= 6 and minor >= 1) or major >= 7 Then
+	di = CreateObject("roDeviceInfo")
+	audioDecoders = di.GetAudioDecodeInfo()
+        modelName   = di.GetModelDisplayName()
+        modelNumber = di.GetModel()
+ 
+	' Check for surround sound codecs:
+	hasDolbyDigital = audioDecoders.doesexist("AC3")
+	hasDolbyDTS = audioDecoders.doesexist("DTS")
+	hasDDPlus = audioDecoders.doesexist("DD+")
+
+	if hasDolbyDigital or hasDolbyDTS or hasDDPlus then
+            GetGlobalAA().AddReplace("surroundSound", true)
+        else
+            GetGlobalAA().AddReplace("surroundSound", false)
+        end if
+		
+        GetGlobalAA().AddReplace("audioOutput51", hasDolbyDigital)
+        GetGlobalAA().AddReplace("audioDTS", hasDolbyDTS)
+        GetGlobalAA().AddReplace("audioDDPlus", hasDDPlus)
+
     ' Get model name and audio output 
-    If major > 4 Or (major = 4 And minor >= 8) Then
+    else
+      If major > 4 Or (major = 4 And minor >= 8) Then
         modelName   = device.GetModelDisplayName()
         modelNumber = device.GetModel()
 
@@ -76,7 +98,7 @@ Sub initGlobals()
         else
             GetGlobalAA().AddReplace("audioOutput51", false)
         end if
-    Else
+      Else
         modelNumber = device.GetModel()
         GetGlobalAA().AddReplace("audioOutput51", false)
 
@@ -109,14 +131,31 @@ Sub initGlobals()
         models["4210R"] = "Roku 2 (2015)"
         models["4230X"] = "Roku 3 (2015)"
         models["4230R"] = "Roku 3 (2015)"
+        models["4400R"] = "Roku 4"
+        models["4400X"] = "Roku 4"
 
         If models.DoesExist(modelNumber) Then
             modelName = models[modelNumber]
         Else
             modelName = modelNumber
         End If
+      end if
+      ' Check for DTS passthrough support
+      ' roku 3 with firmware 5.1 and higher
+      if left(modelNumber,1) = "4" and major >= 5 and minor >= 1
+          GetGlobalAA().AddReplace("audioDTS", true)
+      else
+          GetGlobalAA().AddReplace("audioDTS", false)
+      end if
+
+      ' Check to see if the box can support surround sound
+      surroundSound = device.HasFeature("5.1_surround_sound")
+      GetGlobalAA().AddReplace("surroundSound", surroundSound)
+      GetGlobalAA().AddReplace("audioDDPlus", false)
     End If
 
+    GetGlobalAA().AddReplace("rokuModelNumber", modelNumber)
+    GetGlobalAA().AddReplace("rokuModelName", modelName)
     GetGlobalAA().AddReplace("rokuModelNumber", modelNumber)
     GetGlobalAA().AddReplace("rokuModelName", modelName)
 
