@@ -52,7 +52,7 @@ End Function
 '** deleteLiveTvRecording
 '**********************************************************
 
-Function deleteLiveTvRecording(recordingId As String) As Boolean
+Function OLDdeleteLiveTvRecording(recordingId As String) As Boolean
 
     url = GetServerBaseUrl() + "/LiveTv/Recordings/" + HttpEncode(recordingId)
 
@@ -82,6 +82,37 @@ Function createLiveTvTimer(timerObj As Object) As Boolean
 	
     response = request.PostFromStringWithTimeout(json, 5)
 	
+    return response <> invalid
+	
+End Function
+
+'**********************************************************
+'** deleteAnyItem
+'**********************************************************
+
+Function deleteLiveTvRecording(ContentType As String, ItemId As String) As Boolean
+
+    loadingDialog = CreateObject("roOneLineDialog")
+    loadingDialog.SetTitle("Deleting item...")
+    loadingDialog.ShowBusyAnimation()
+    loadingDialog.Show()
+
+    if ContentType = "Recording" then
+    	url = GetServerBaseUrl() + "/LiveTv/Recordings/" + HttpEncode(ItemId)
+    else
+    	url = GetServerBaseUrl() + "/Items/" + HttpEncode(ItemId)
+    end if
+    request = HttpRequest(url)
+    request.AddAuthorization()
+    request.SetRequest("DELETE")
+
+    response = request.PostFromStringWithTimeout("", 5)
+    loadingDialog.Close()
+    if response <> invalid then
+        createDialog("Success", "The item was successfully deleted.", "", true)
+    else
+        createDialog("Error", "Error occured. The item was not deleted. Sorry.", "", true)
+    end if
     return response <> invalid
 	
 End Function
