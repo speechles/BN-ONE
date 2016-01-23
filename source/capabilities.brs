@@ -13,6 +13,11 @@ Function getDirectPlayProfiles(surroundSound, surroundSoundDCA)
 		audioContainers = audioContainers + ",flac"
 	end if
 	
+	' roku 4 supports apple lossless audio codec
+	if model = "4400" then
+		audioContainers = audioContainers + ",alac"
+	end if
+	  
 	profiles.push({
 		Type: "Audio"
 		Container: audioContainers
@@ -24,10 +29,17 @@ Function getDirectPlayProfiles(surroundSound, surroundSoundDCA)
 		mp4Audio = mp4Audio + ",ac3"
 	end if
 	
+	mp4Video = "h264,mpeg4"
+
+	' roku 4 has support for hevc and vp9
+	if model = "4400" then
+		mp4Video = mp4Video + ",hevc,vp9"
+	end if
+	
 	profiles.push({
 		Type: "Video"
 		Container: "mp4,mov,m4v"
-		VideoCodec: "h264,mpeg4"
+		VideoCodec: mp4Video
 		AudioCodec: mp4Audio
 	})
 	
@@ -43,6 +55,13 @@ Function getDirectPlayProfiles(surroundSound, surroundSoundDCA)
             mkvAudio = mkvAudio + ",dca"
         end if
 
+	mkvVideo = "h264,mpeg4"
+
+	' roku 4 has support for hevc and vp9
+	if model = "4400" then
+		mkvVideo = mkvVideo + ",hevc,vp9"
+	end if
+	  
 	if CheckMinimumVersion(versionArr, [5, 3]) then
 		mkvAudio = mkvAudio + ",flac"
 	end if
@@ -100,6 +119,8 @@ Function getCodecProfiles()
 	
 	maxWidth = "1920"
 	maxHeight = "1080"
+	max4kWidth = "3840"
+	max4kHeight = "2160"
 	
 	if getGlobalVar("displayType") <> "HDTV" then
 		maxWidth = "1280"
@@ -163,6 +184,69 @@ Function getCodecProfiles()
 		Codec: "h264"
 		Conditions: h264Conditions
 	})
+	
+		' roku4 has ability to direct play h265/hevc
+	if model = "4400" then
+
+	hevcConditions = []
+	hevcConditions.push({
+		Condition: "LessThanEqual"
+		Property: "Width"
+		Value: max4kWidth
+		IsRequired: true
+	})
+	hevcConditions.push({
+		Condition: "LessThanEqual"
+		Property: "Height"
+		Value: max4kHeight
+		IsRequired: true
+	})
+	hevcConditions.push({
+		Condition: "LessThanEqual"
+		Property: "VideoFramerate"
+		Value: "60"
+		IsRequired: false
+	})
+	hevcConditions.push({
+		Condition: "LessThanEqual"
+		Property: "VideoLevel"
+		Value: "31"
+		IsRequired: false
+	})
+	
+	profiles.push({
+		Type: "Video"
+		Codec: "hevc"
+		Conditions: hevcConditions
+	})
+
+	' roku4 has ability to direct play vp9 too
+	vp9Conditions = []
+	vp9Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Width"
+		Value: max4kWidth
+		IsRequired: true
+	})
+	vp9Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Height"
+		Value: max4kHeight
+		IsRequired: true
+	})
+	vp9Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "VideoFramerate"
+		Value: "30"
+		IsRequired: false
+	})
+
+	profiles.push({
+		Type: "Video"
+		Codec: "vp9"
+		Conditions: vp9Conditions
+	})
+	end if ' roku 4
 	
 	mpeg4Conditions = []
 	mpeg4Conditions.push({
