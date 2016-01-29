@@ -1320,7 +1320,11 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
     else if contentType = "TvGenre" then
 		screen = createTvGenreScreen(m, item.Title)
 		screenName = "TvGenre " + item.Title
-
+		
+    else if contentType = "TvStudio" then
+		screen = createTvStudioScreen(m, item.Title)
+		screenName = "TvStudio " + item.Title
+		
     else if contentType = "TvAlphabet" then
 		screen = createTvAlphabetScreen(m, itemId, item.ParentId)
         screenName = "TvAlphabet " + itemId
