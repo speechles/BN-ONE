@@ -148,7 +148,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		query.AddReplace("sortorder", "Ascending")
 		query.AddReplace("fields", "PrimaryImage")
 		query.AddReplace("ImageTypeLimit", "1")
-		query.AddReplace("includeitemtypese", "Episode")
+		query.AddReplace("includeitemtypes", "Episode")
 	else if row = 5
 		' Upcoming Tv Shows
 		url = url + "/Shows/Upcoming?limit=100"
