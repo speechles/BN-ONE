@@ -84,6 +84,8 @@ Function createVideoPlayerScreen(context, contextIndex, playOptions, viewControl
     obj.playbackError = false
 	obj.changeStream = false
     obj.underrunCount = 0
+    obj.interactionTimeout = FirstOf(regread("prefinteraction"), "18000").ToInt()
+    obj.shown = invalid
     obj.timelineTimer = invalid
     obj.progressTimer = invalid
     obj.playState = "buffering"
