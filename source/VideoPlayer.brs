@@ -466,6 +466,7 @@ Function ShowKeepAliveDialog() As Integer
 		end if
 		dialog.UpdateText("Are you still here?"+chr(10)+"Are you awake?"+chr(10)+chr(10)+"You have "+ tostr(60 - m.TimeoutTimer.TotalSeconds()) + " seconds to reply or the video player closes.")		
 	end while
+	dialog.close()
 	return reply
 End Function
 
