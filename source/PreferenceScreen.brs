@@ -186,7 +186,20 @@ Function handleItemOptionsScreenMessage(msg) as Boolean
             prefSelected = list[index].Id
 
             ' Save New Preference
-            RegWrite(m.itemId, prefSelected)
+            if m.ItemId = "prefinteraction"
+		if prefSelected = "0" then
+			user = getGlobalVar("user")
+			if user.isAdmin then
+				RegWrite(m.itemId, prefSelected)
+			else
+				createDialog("Permission Error!", "You must be marked as an administrative user in order to disable the Interaction Timeout. Please see an administrator.", "OK", true)
+			end if
+		else
+			RegWrite(m.itemId, prefSelected)
+		end if
+            else
+		RegWrite(m.itemId, prefSelected)
+            end if
 
 			m.Screen.Close()
 
