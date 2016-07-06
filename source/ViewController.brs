@@ -730,7 +730,7 @@ Sub vcShow()
 
     	dialog = CreateObject("roMessageDialog")
     	dialog.SetTitle("GoodBye " + username + "!")
-	dialog.SetText("                Emby will be here waiting for you to return."+chr(10)+"                        ^_^   Thanks for using Emby!   ^_^" + chr(10) + "                I always knew you were super cool like that." + chr(10) + chr(10) + "                                        Special Thanks:" + chr(10) + "          @shaefurr for his help cleaning up the graphics!!!" + chr(10) + "          @waldoniss for his help audio and subtitle work!!!")
+	dialog.SetText("                Emby will be here waiting for you to return."+chr(10)+"                        ^_^   Thanks for using Emby!   ^_^" + chr(10) + "                I always knew you were super cool like that." + chr(10) + chr(10) + "                                        Special Thanks:" + chr(10) + "          @shaefurr for his help cleaning up the graphics!!!" + chr(10) + "         @waldoniss for his help with audio and subtitles!!!")
     	dialog.Show()
 	sleep(3500)
 	dialog.Close()
