@@ -113,7 +113,11 @@ Function http_authorization() As Void
 	authString = "MediaBrowser"
 
 	authString = authString + " Client=" + Quote() + "Roku" + Quote()
-	authString = authString + ", Device=" + Quote() + firstOf(regRead("prefDisplayName"), getGlobalVar("rokuModelName", "Unknown")) + Quote()
+	dname = FirstOf(RegRead("prefDisplayName"),"")
+	if dname = ""
+		dname = firstOf(GetGlobalVar("rokuModelName"), "Unknown") + " (BlueNeon)"
+	end if
+	authString = authString + ", Device=" + Quote() + dname + Quote()
 	authString = authString + ", DeviceId=" + Quote() + getGlobalVar("rokuUniqueId", "Unknown") + Quote()
 	authString = authString + ", Version=" + Quote() + HttpEncode(getGlobalVar("channelVersion", "Unknown")) + Quote()
 

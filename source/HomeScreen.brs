@@ -25,28 +25,24 @@ Function createHomeScreen(viewController as Object) as Object
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getHomeScreenRowUrl
 	loader.parsePagedResult = parseHomeScreenResult
-	loader.getLocalData = getHomeScreenLocalData
-
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom", 8, 75)
-
+	loader.getLocalData = getHomeScreenLocalData	
+	screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom", 8, 100)
 	screen.baseHandleMessage = screen.HandleMessage
 	screen.HandleMessage = handleHomeScreenMessage
-
-    screen.OnTimerExpired = homeScreenOnTimerExpired
-    screen.SuperActivate = screen.Activate
-    screen.Activate = homeScreenActivate
-
+	screen.OnTimerExpired = homeScreenOnTimerExpired
+	screen.SuperActivate = screen.Activate
+	screen.Activate = homeScreenActivate
 	screen.refreshBreadcrumb = homeRefreshBreadcrumb
+	screen.clockTimer = createTimer()
+	screen.clockTimer.Name = "clock"
+	screen.clockTimer.SetDuration(20000, true) ' A little lag is fine here
+	viewController.AddTimer(screen.clockTimer, screen)
 
-    screen.clockTimer = createTimer()
-    screen.clockTimer.Name = "clock"
-    screen.clockTimer.SetDuration(20000, true) ' A little lag is fine here
-    viewController.AddTimer(screen.clockTimer, screen)
-	
 	ConnectionManager().sendWolToAllServers(m)
-
-    screen.SetDescriptionVisible(false)
-
+	screen.SetDescriptionVisible(false)
+	' only the audio contextmenu exists on the homescreen
+	' so allow it to show up as no conflict
+	GetGlobalAA().AddReplace("AudioConflict","0")
 	return screen
 End Function
 
@@ -55,7 +51,6 @@ Function getUserViews() as Object
 	views = []
 	
 	if getGlobalVar("user") = invalid then return views
-	
 	url = GetServerBaseUrl() + "/Users/" + getGlobalVar("user").Id + "/Views?fields=PrimaryImageAspectRatio"
 	
     request = HttpRequest(url)
@@ -76,7 +71,7 @@ Function getUserViews() as Object
 				views.push(i)
 			
 			' Treat all other types as folders for now
-			else 
+			else
 				viewType = "folders"
 				views.push(i)
 			end if
@@ -85,8 +80,9 @@ Function getUserViews() as Object
 			i.CollectionType = viewType
 			
 		end for
-		
-	end if	
+    else
+	createDialog("User Views Error!", "Failed To Get User Views (invalid).", "OK", true)
+    end if	
 	
 	return views
 
@@ -132,18 +128,19 @@ End Function
 
 Function getHomeScreenRowUrl(row as Integer, id as String) as String
 
-    parts = id.tokenize("|")
+	parts = id.tokenize("|")
 	id = parts[0]
 	parentId = firstOf(parts[1], "")
 	
 	url = GetServerBaseUrl()
+	latest = FirstOf(regUserRead("preflatest"), "0").toInt()
 
-    query = {}
-
+	query = {}
+	remwatch = FirstOf(RegUserRead("prefRemWatch"),"yes")
 	if id = "folders"
 	
 		url = url  + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?sortby=sortname"
-		query.AddReplace("Fields", "PrimaryImageAspectRatio")
+		query.AddReplace("Fields", "PrimaryImageAspectRatio,Overview")
 		
 	else if id = "playlists" or id = "boxsets"
 	
@@ -165,31 +162,40 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			query = {
 				ItemLimit: "20"
 				CategoryLimit: "1"
-				fields: "PrimaryImageAspectRatio",
+				fields: "PrimaryImageAspectRatio,Overview",
 				ImageTypeLimit: "1"
 			}
 			
 		' Latest
 		else if movieToggle = 2 then
-			
-			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Movie"
-			query = {
-				recursive: "true"
-				ExcludeLocationTypes: "Virtual"
-				fields: "PrimaryImageAspectRatio"
-				sortby: "DateCreated"
-				sortorder: "Descending"
-				filters: "IsUnplayed",
-				ImageTypeLimit: "1"
-			}
-			
+			if latest = 0 then
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Movie"
+				query = {
+					recursive: "true"
+					ExcludeLocationTypes: "Virtual"
+					fields: "PrimaryImageAspectRatio,Overview"
+					sortby: "DateCreated"
+					sortorder: "Descending"
+					ImageTypeLimit: "1"
+				}
+				if remwatch = "yes" then query.AddReplace("filters", "IsUnplayed")
+			else
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items/Latest?IncludeItemTypes=Movie"
+				query = {
+					fields: "DateCreated,ItemCounts,PrimaryImageAspectRatio,Overview"
+					ImageTypeLimit: "1"
+					EnableImageTypes: "Primary,Backdrop,Banner,Thumb"
+					EnableTotalRecordCount: "true"
+				}
+			end if
+			if remwatch = "yes" then query.AddReplace("filters", "IsUnplayed")
 		' Resume
 		else if movieToggle = 4 then
 			
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Movie"
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "DatePlayed"
 				sortorder: "Descending"
 				filters: "IsResumable",
@@ -202,7 +208,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Movie"
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "SortName"
 				sortorder: "Ascending"
 				filters: "IsFavorite",
@@ -216,7 +222,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			query = {
 				userid: getGlobalVar("user").Id
 				includeitemtypes: "Movie"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "SortName"
 				sortorder: "Ascending"
 			}
@@ -239,17 +245,27 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			
 		' Latest
 		else if tvToggle = 2 then
-			
-			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Episode"
-			query = {
-				recursive: "true"
-				ExcludeLocationTypes: "Virtual"
-				fields: "PrimaryImageAspectRatio"
-				sortby: "DateCreated"
-				sortorder: "Descending"
-				filters: "IsUnplayed",
-				ImageTypeLimit: "1"
-			}
+			if latest = 0 then
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Episode"
+				query = {
+					recursive: "true"
+					ExcludeLocationTypes: "Virtual"
+					fields: "PrimaryImageAspectRatio,Overview"
+					sortby: "DateCreated"
+					sortorder: "Descending"
+					ImageTypeLimit: "1"
+				}
+			else
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items/Latest?IncludeItemTypes=Episode"
+				query = {
+					fields: "DateCreated,ItemCounts,PrimaryImageAspectRatio,Overview"
+					ImageTypeLimit: "1"
+					EnableImageTypes: "Primary,Backdrop,Banner,Thumb"
+					GroupItems: "false"
+					EnableTotalRecordCount: "true"
+				}
+			end if
+			if remwatch = "yes" then query.AddReplace("filters", "IsUnplayed")
 			
 		' Resume
 		else if tvToggle = 4 then
@@ -257,7 +273,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Episode"
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "DatePlayed"
 				sortorder: "Descending"
 				filters: "IsResumable",
@@ -270,7 +286,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Series"
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "SortName"
 				sortorder: "Ascending"
 				filters: "IsFavorite",
@@ -284,7 +300,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			query = {
 				userid: getGlobalVar("user").Id
 				includeitemtypes: "Series"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "SortName"
 				sortorder: "Ascending",
 				ImageTypeLimit: "1"
@@ -325,16 +341,79 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 	else if id = "music"
 	
 		musicToggle  = (firstOf(RegUserRead("musicToggle"), "1")).ToInt()
-
+		
 		' Latest
 		if musicToggle = 1 then
+			if latest = 1 then
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=MusicAlbum"	
+				query = {
+					recursive: "true"
+					fields: "PrimaryImageAspectRatio,Overview"
+					sortby: "DateCreated"
+					sortorder: "Descending",
+					ImageTypeLimit: "1"
+				}
+				if remwatch = "yes" then query.AddReplace("filters", "IsUnplayed")
+			else
+				url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items/Latest?IncludeItemTypes=MusicAlbum"
+				query = {
+					fields: "DateCreated,ItemCounts,PrimaryImageAspectRatio,Overview"
+					ImageTypeLimit: "1"
+					EnableImageTypes: "Primary,Backdrop,Banner,Thumb"
+					TotalRecordCount: "100"
+					EnableTotalRecordCount: "true"
+				}
+			end if
+			if remwatch = "yes" then query.AddReplace("filters", "IsUnplayed")
+
+		' Favorite
+		else if musicToggle = 4 then
 			
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=MusicAlbum"		
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
-				sortby: "DateCreated"
+				fields: "PrimaryImageAspectRatio,AudioInfo,ParentId,SyncInfo,Overview,Genres"
+                    		SortBy: "AlbumArtist,SortName"
+		    		filters: "IsFavorite",
+				ImageTypeLimit: "1"
+			}
+
+		' Recent
+		else if musicToggle = 5 then
+			
+			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Audio"		
+			query = {
+				recursive: "true"
+				fields: "PrimaryImageAspectRatio,AudioInfo,ParentId,SyncInfo,Overview,Genres"
+				sortby: "DatePlayed"
+				filters: "isPlayed"
 				sortorder: "Descending",
+				ImageTypeLimit: "1"
+			}
+
+		' Most Played
+		else if musicToggle = 6 then
+			
+			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Audio"		
+			query = {
+				recursive: "true"
+				fields: "PrimaryImageAspectRatio,AudioInfo,ParentId,SyncInfo,Overview,Genres"
+				sortby: "PlayCount"
+				filters: "isPlayed"
+				sortorder: "Descending",
+				ImageTypeLimit: "1"
+			}
+
+		' Genre
+		else if musicToggle = 7 then
+			
+			url = url + "/MusicGenres?Recursive=true"
+			query = {
+				userid: getGlobalVar("user").Id
+				includeitemtypes: "MusicAlbum"
+				fields: "PrimaryImageAspectRatio,AudioInfo,ParentId,SyncInfo,Overview,Genres"
+				sortby: "SortName"
+				sortorder: "Ascending",
 				ImageTypeLimit: "1"
 			}
 		
@@ -344,7 +423,7 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 			url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Audio"		
 			query = {
 				recursive: "true"
-				fields: "PrimaryImageAspectRatio"
+				fields: "PrimaryImageAspectRatio,Overview"
 				sortby: "DateCreated"
 				sortorder: "Descending",
 				ImageTypeLimit: "1"
@@ -361,9 +440,13 @@ Function getHomeScreenRowUrl(row as Integer, id as String) as String
 	end if
 
 	for each key in query
-		url = url + "&" + key +"=" + HttpEncode(query[key])
+		if instr(key,",") > 0
+			url = url + "&" + key +"=" + HttpEncode(query[key])
+		else
+			url = url + "&" + key +"=" + query[key]
+		end if
 	end for
-
+	debug(url)
     return url
 
 End Function
@@ -371,7 +454,7 @@ End Function
 Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integer, json as String) as Object
 
 	viewController = GetViewController()
-	maxListSize = 60
+	maxListSize = 100
 	
 	parts = id.tokenize("|")
 	id = parts[0]
@@ -408,7 +491,7 @@ Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integ
 			buttons.Append(response.Items)		
 			response.Items = buttons
 		end if
-		
+
 		if response.TotalCount > maxListSize then response.TotalCount = maxListSize	
 		if response.TotalCount < minTotalRecordCount then response.TotalCount = minTotalRecordCount	
 		return response
@@ -434,9 +517,8 @@ Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integ
 			buttons.Append(response.Items)		
 			response.Items = buttons
 		end if
-		
 		if response.TotalCount > maxListSize then response.TotalCount = maxListSize	
-		if response.TotalCount < minTotalRecordCount then response.TotalCount = minTotalRecordCount	
+		if response.TotalCount < minTotalRecordCount then response.TotalCount = minTotalRecordCount
 		return response
 		
 	else if id = "livetv" then
@@ -466,9 +548,19 @@ Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integ
 		return response
 		
 	else if id = "music" then
-	
-		response = parseItemsResponse(json, 0, "mixed-aspect-ratio-square")
-		
+
+		musicToggle  = (firstOf(RegUserRead("musicToggle"), "1")).ToInt()
+
+		if MusicToggle = 5
+			response = parseItemsResponse(json, 0, "mixed-aspect-ratio-square", "RecentlyPlayed")
+		else if MusicToggle = 6
+			response = parseItemsResponse(json, 0, "mixed-aspect-ratio-square", "MostPlayed")
+		else if MusicToggle = 7
+			response = parseItemsResponse(json, 1, "two-row-flat-landscape-custom")
+		else
+			response = parseItemsResponse(json, 0, "mixed-aspect-ratio-square")
+		end if
+
 		if response.TotalCount = 0 then
 			Return {
 				Items: []
@@ -478,10 +570,9 @@ Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integ
 	
 		musicToggle  = (firstOf(RegUserRead("musicToggle"), "1")).ToInt()		
 		
-		if musicToggle <> 1 then
+		if musicToggle = 2 or MusicToggle = 3 then
 			return GetMusicButtons(viewController, musicToggle, parentId, viewTileImageUrl)
 		end if
-		
 		buttons = GetBaseMusicButtons(viewController, musicToggle, parentId, viewTileImageUrl)
 		buttonCount = buttons.Count()
 		minTotalRecordCount = buttonCount + response.Items.Count()
@@ -491,14 +582,16 @@ Function parseHomeScreenResult(row as Integer, id as string, startIndex as Integ
 			buttons.Append(response.Items)		
 			response.Items = buttons
 		end if
-		
-		if response.TotalCount > maxListSize then response.TotalCount = maxListSize	
-		if response.TotalCount < minTotalRecordCount then response.TotalCount = minTotalRecordCount	
+		if musicToggle = 5 or musicToggle = 6 then maxListSize = 102
+		if musicToggle <> 7 then
+			if response.TotalCount > maxListSize then response.TotalCount = maxListSize
+		end if
+		if response.TotalCount < minTotalRecordCount then response.TotalCount = minTotalRecordCount
 		return response
 		
 	end if
-
 	return parseItemsResponse(json, 0, "two-row-flat-landscape-custom")
+
 	
 End Function
 
@@ -512,16 +605,16 @@ Function handleHomeScreenMessage(msg) as Boolean
 
         if msg.isListItemSelected() Then
 			
-			rowIndex = msg.GetIndex()
-			context = m.contentArray[rowIndex]           
-            index = msg.GetData()
-            item = context[index]
+		rowIndex = msg.GetIndex()
+		context = m.contentArray[rowIndex]           
+		index = msg.GetData()
+		item = context[index]
 
             if item = invalid then
 
             Else If item.ContentType = "MovieToggle" Then
 
-				handled = true
+		handled = true
                 GetNextMovieToggle()
                 m.loader.RefreshRow(rowIndex)
 
@@ -533,21 +626,18 @@ Function handleHomeScreenMessage(msg) as Boolean
             Else If item.ContentType = "TVToggle" Then
 				
                 handled = true
-
                 GetNextTVToggle()
                 m.loader.RefreshRow(rowIndex)
 
             Else If item.ContentType = "LiveTVToggle" Then
 				
                 handled = true
-
                 GetNextLiveTVToggle()
                 m.loader.RefreshRow(rowIndex)
 
             Else If item.ContentType = "MusicToggle" Then
 				
                 handled = true
-
                 GetNextMusicToggle()
                 m.loader.RefreshRow(rowIndex)
 
@@ -567,7 +657,7 @@ End Function
 
 Function GetNextMovieToggle()
 
-	movieToggle  = (firstOf(RegUserRead("movieToggle"), "2")).ToInt()
+	movieToggle  = (firstOf(RegUserRead("movieToggle"), "1")).ToInt()
 	
     movieToggle = movieToggle + 1
 
@@ -870,15 +960,14 @@ End Function
 Function GetNextMusicToggle()
 
 	musicToggle  = (firstOf(RegUserRead("musicToggle"), "1")).ToInt()
-	
-    musicToggle = musicToggle + 1
+	musicToggle = musicToggle + 1
+	themeType = FirstOf(RegRead("prefTheme"),"1")
+	if (musicToggle > 7 and themeType = "1") or (musicToggle > 3 and themeType = "0")
+		musicToggle = 1
+	end if
 
-    if musicToggle = 4 then
-        musicToggle = 1
-    end if
-
-    ' Update Registry
-    RegUserWrite("musicToggle", musicToggle)
+	' Update Registry
+	RegUserWrite("musicToggle", musicToggle)
 	
 End Function
 
@@ -909,13 +998,11 @@ Function GetBaseMusicButtons(viewController as Object, musicToggle as Integer, p
 
     ' Latest
     if musicToggle = 1 then
-	
         switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-7.jpg")
         switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-7.jpg")
 
     ' Jump In Album
     else if musicToggle = 2 then
-	
         switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-8.jpg")
         switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-8.jpg")
 
@@ -923,6 +1010,26 @@ Function GetBaseMusicButtons(viewController as Object, musicToggle as Integer, p
     else if musicToggle = 3 then
         switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-9.jpg")
         switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-9.jpg")
+
+    ' Favorite Albums
+    else if musicToggle = 4 then
+        switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-13.jpg")
+        switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-13.jpg")
+
+    ' Recently played Albums
+    else if musicToggle = 5 then
+        switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-14.jpg")
+        switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-14.jpg")
+
+    ' Most Played Albums
+    else if musicToggle = 6 then
+        switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-15.jpg")
+        switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-15.jpg")
+
+    ' Genre
+    else if musicToggle = 7 then
+        switchButton.HDPosterUrl = viewController.getThemeImageUrl("hd-toggle-16.jpg")
+        switchButton.SDPosterUrl = viewController.getThemeImageUrl("hd-toggle-16.jpg")
 
     end if
 
@@ -937,16 +1044,14 @@ Function GetMusicButtons(viewController as Object, musicToggle as Integer, paren
 
     ' Jump In Album
     if musicToggle = 2 then
-        
-		alphaMusicAlbum = getAlphabetList("MusicAlbumAlphabet", parentId)
+	alphaMusicAlbum = getAlphabetList("MusicAlbumAlphabet", parentId)
         if alphaMusicAlbum <> invalid
             buttons.Append( alphaMusicAlbum.Items )
         end if
 
     ' Jump In Artist
     else if musicToggle = 3 then
-        
-		alphaMusicArtist = getAlphabetList("MusicArtistAlphabet", parentId)
+	alphaMusicArtist = getAlphabetList("MusicArtistAlphabet", parentId)
         if alphaMusicArtist <> invalid
             buttons.Append( alphaMusicArtist.Items )
         end if
@@ -967,12 +1072,22 @@ End Function
 Function GetOptionButtons(viewController as Object) As Object
     
 	buttons = []
-	
-	if AudioPlayer().IsPlaying then
+	musicstop = FirstOf(GetGlobalVar("musicstop"),"0")
+	if AudioPlayer().Context <> invalid and musicstop = "0"
+		text = Pluralize(AudioPlayer().Context.count(),"Track")
 		buttons.push({
 				Title: "Now Playing"
 				ContentType: "NowPlaying"
 				ShortDescriptionLine1: "Now Playing"
+				ShortDescriptionLine2: text
+				HDPosterUrl: viewController.getThemeImageUrl("hd-music.jpg")
+				SDPosterUrl: viewController.getThemeImageUrl("hd-music.jpg")
+			})
+		buttons.push({
+				Title: "Track List"
+				ContentType: "MusicList"
+				ShortDescriptionLine1: "Track List"
+				ShortDescriptionLine2: text
 				HDPosterUrl: viewController.getThemeImageUrl("hd-music.jpg")
 				SDPosterUrl: viewController.getThemeImageUrl("hd-music.jpg")
 			})
@@ -982,33 +1097,64 @@ Function GetOptionButtons(viewController as Object) As Object
             Title: "Search"
             ContentType: "Search"
             ShortDescriptionLine1: "Search"
+	    ShortDescriptionLine2: "Library"
             HDPosterUrl: viewController.getThemeImageUrl("hd-search.jpg")
             SDPosterUrl: viewController.getThemeImageUrl("hd-search.jpg")
         })
-	
+
+	device = CreateObject("roDeviceInfo")
+	friendlyName = device.GetFriendlyName()
+
 	buttons.push({
             Title: "Preferences"
             ContentType: "Preferences"
             ShortDescriptionLine1: "Preferences"
-            ShortDescriptionLine2: "Version " + getGlobalVar("channelVersion", "Unknown")
+            ShortDescriptionLine2: friendlyName + " [" + "v" + getGlobalVar("channelVersion", "Unknown") + "]"
             HDPosterUrl: viewController.getThemeImageUrl("hd-preferences.jpg")
             SDPosterUrl: viewController.getThemeImageUrl("hd-preferences.jpg")
         })
 
-    buttons.push({
+	name = right(GetServerBaseUrl(),GetServerBaseUrl().len()-7)
+	part = name.Instr("/")
+	name = left(name,part)
+    	buttons.push({
             Title: "Change Server"
             ContentType: "ChangeServer"
             ShortDescriptionLine1: "Change Server"
+	    ShortDescriptionLine2: name
             HDPosterUrl: viewController.getThemeImageUrl("hd-landscape.jpg")
             SDPosterUrl: viewController.getThemeImageUrl("hd-landscape.jpg")
         })
-	
+	username = ""
+	user = getGlobalVar("user")
+	if user <> invalid then
+		username = user.Title
+		if user.IsAdmin then username = username + " *ADMIN*"
+	end if
 	buttons.push({
             Title: "Sign Out"
             ContentType: "Logout"
             ShortDescriptionLine1: "Sign Out"
+	    ShortDescriptionLine2: username
             HDPosterUrl: viewController.getThemeImageUrl("hd-switch-user.jpg")
             SDPosterUrl: viewController.getThemeImageUrl("hd-switch-user.jpg")
+        })
+	peepsnames = GetAlsoWatching()
+	if peepsnames <> ""
+		r = CreateObject("roRegex", ",", "")
+		if r.split(peepsnames).count() <> 0
+			peep = tostr(Pluralize(r.split(peepsnames).count()," Other"))+" Watching"
+		end if
+	else
+		peep = "No Others Watching"
+	end if
+	buttons.push({
+            Title: "Also Watching"
+            ContentType: "AlsoWatching"
+            ShortDescriptionLine1: "Also Watching"
+	    ShortDescriptionLine2: peep
+            HDPosterUrl: viewController.getThemeImageUrl("hd-also-user.jpg")
+            SDPosterUrl: viewController.getThemeImageUrl("hd-also-user.jpg")
         })
 	
 	Return {
@@ -1074,7 +1220,6 @@ Sub homeRefreshBreadcrumb()
 	if user <> invalid then username = user.Title
 
 	showClock = firstOf(RegRead("prefShowClock"), "yes")
-
 	if showClock = "yes" then
 		m.Screen.SetBreadcrumbText(username, CurrentTimeAsString())
 	else

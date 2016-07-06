@@ -6,15 +6,13 @@
 '** Credit: Plex Roku https://github.com/plexinc/roku-client-public
 
 Sub initDataLoader(loader)
-    loader.names = []
-
-    loader.LoadMoreContent = baseLoadMoreContent
-    loader.GetNames = baseGetNames
-    loader.GetLoadStatus = baseGetLoadStatus
-    loader.GetPendingRequestCount = baseGetPendingRequestCount
-    loader.RefreshData = baseRefreshData
-
-    loader.Listener = invalid
+	loader.names = []
+	loader.LoadMoreContent = baseLoadMoreContent
+	loader.GetNames = baseGetNames
+	loader.GetLoadStatus = baseGetLoadStatus
+	loader.GetPendingRequestCount = baseGetPendingRequestCount
+	loader.RefreshData = baseRefreshData
+	loader.Listener = invalid
 End Sub
 
 '*
@@ -23,11 +21,11 @@ End Sub
 '* rows are already loaded.
 '*
 Function baseLoadMoreContent(focusedIndex, extraRows=0) As Boolean
-    return true
+	return true
 End Function
 
 Function baseGetNames()
-    return m.names
+	return m.names
 End Function
 
 '*
@@ -37,20 +35,20 @@ End Function
 '*   2 - Row has finished loading
 '*
 Function baseGetLoadStatus(row) As Integer
-    return 2
+	return 2
 End Function
 
 Sub baseRefreshData()
-    ' No-op by default, subclasses can override if they have something to refresh.
+	' No-op by default, subclasses can override if they have something to refresh.
 End Sub
 
 Function baseGetPendingRequestCount() As Integer
-    return 0
+	return 0
 End Function
 
 Function createDummyLoader()
-    loader = CreateObject("roAssociativeArray")
-    initDataLoader(loader)
-    loader.names[0] = ""
-    return loader
+	loader = CreateObject("roAssociativeArray")
+	initDataLoader(loader)
+	loader.names[0] = ""
+	return loader
 End Function

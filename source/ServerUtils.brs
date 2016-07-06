@@ -6,6 +6,11 @@ Function GetServerBaseUrl(baseUrl = "")
 
 	if baseUrl = "" then baseUrl = GetViewController().serverUrl
 	
+	if baseurl = invalid then
+		m.viewcontroller.logout()
+		return invalid
+	end if
+
 	if Instr(0, baseUrl, "://") = 0 then 
 		baseUrl = "http://" + baseUrl
 	end if
@@ -191,15 +196,18 @@ Function authenticateUser(serverUrl As String, userText As String, passwordText 
         metaData = ParseJSON(response)
 
         if metaData = invalid
+	    createDialog("Authentication Error!", "Error parsing authentication response.", "OK", true)
             Debug("Error parsing authentication response.")
             return invalid
         end if
 
         return metaData
     else
+        createDialog("Authentication Error!", "Invalid username or password.", "OK", true)
         Debug("Invalid username or password.")
+	return invalid
     end if
-
+    createDialog("Authentication Error!", "An unknown problem has occured.", "OK", true)
     return invalid
 End Function
 
@@ -216,20 +224,139 @@ Function postCapabilities() As Boolean
 	caps = getCapabilities()
 
 	' Prepare Request
-    request = HttpRequest(url)
-    request.AddAuthorization()
+	request = HttpRequest(url)
+	request.AddAuthorization()
 	request.ContentType("json")
 
 	json = SimpleJSONBuilder(caps)
-    response = request.PostFromStringWithTimeout(json, 5)
-	
-    if response <> invalid
-        return true
-    else
-        Debug("Failed to Post Capabilities")
-    end if
+ 	response = request.PostFromStringWithTimeout(json, 5)
 
-    return false
+	if response <> invalid
+		return true
+	else
+		createDialog("Capabilities Error!", "Failed to Post Capabilities.", "OK", true)
+		Debug("Failed to Post Capabilities")
+	end if
+	return false
+End Function
+
+'******************************************************
+' Get Session Id
+'******************************************************
+
+Function GetSessionId() As String
+
+	Debug("Getting SessionId")
+	
+    	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
+
+	' Prepare Request
+	request = HttpRequest(url)
+	request.ContentType("json")
+	request.AddAuthorization()
+	
+
+	' Execute Request
+	response = request.GetToStringWithTimeout(20)
+
+	if response <> invalid
+        	fixedResponse	= normalizeJson(response)
+        	jsonObj		= ParseJSON(fixedResponse)
+		debug("Session ID :"+jsonObj[0].Id)
+		return jsonObj[0].Id
+	else
+		createDialog("Sessions Error!", "Failed to Get Sessions Id.", "OK", true)
+		Debug("Failed to Get Sessions")
+	end if
+	return invalid
+End Function
+
+'******************************************************
+' Load a Sessions Also Watching users
+'******************************************************
+
+Function GetAlsoWatching() As String
+	Debug("Getting Also Watching users")
+
+    	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
+
+	' Prepare Request
+	request = HttpRequest(url)
+	request.ContentType("json")
+	request.AddAuthorization()
+	
+
+	' Execute Request
+	response = request.GetToStringWithTimeout(20)
+	alsowatch = ""
+	if response <> invalid
+        	fixedResponse	= normalizeJson(response)
+        	jsonObj		= ParseJSON(fixedResponse)
+		debug("Session ID :"+jsonObj[0].Id)
+		also = jsonObj[0].AdditionalUsers
+		printanylist(2,also)
+		if also.count() > 0
+			for each user in also
+				if alsowatch <> ""
+					alsowatch = alsowatch + "," + user.userid
+				else
+					alsowatch = user.userid
+				end if
+			end for
+		end if
+		if alsowatch <> ""
+			return alsowatch
+		else
+			return ""
+		end if
+	else
+		Debug("Failed to Load Sessions Also Watching users")
+	end if
+	return ""
+End Function
+
+'******************************************************
+' Return a Sessions Also Watching users
+'******************************************************
+
+Function GetAlsoWatchingNames() As String
+	Debug("Getting Also Watching users")
+
+    	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
+
+	' Prepare Request
+	request = HttpRequest(url)
+	request.ContentType("json")
+	request.AddAuthorization()
+	
+
+	' Execute Request
+	response = request.GetToStringWithTimeout(20)
+	alsowatch = ""
+	if response <> invalid
+        	fixedResponse	= normalizeJson(response)
+        	jsonObj		= ParseJSON(fixedResponse)
+		debug("Session ID :"+jsonObj[0].Id)
+		also = jsonObj[0].AdditionalUsers
+		printanylist(2,also)
+		if also.count() > 0
+			for each user in also
+				if alsowatch <> ""
+					alsowatch = alsowatch + ", " + user.UserName
+				else
+					alsowatch = user.UserName
+				end if
+			end for
+		end if
+		if alsowatch <> ""
+			return alsowatch
+		else
+			return ""
+		end if
+	else
+		Debug("Failed to Load Sessions Also Watching users")
+	end if
+	return ""
 End Function
 
 
@@ -259,12 +386,11 @@ Function getInstalledPlugins() As Object
     ' Execute Request
     response = request.GetToStringWithTimeout(10)
     if response <> invalid
-
-		fixedResponse = normalizeJson(response)
-
+	fixedResponse = normalizeJson(response)
         return ParseJSON(fixedResponse)
-		
+    else
+        createDialog("Plugins Error!", "Error occured retrieving plugins.", "OK", true)
     end if
-
+    createDialog("Plugins Error!", "An unknown error has occured.", "OK", true)
     return invalid
 End Function

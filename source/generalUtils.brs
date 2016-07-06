@@ -878,7 +878,7 @@ End Sub
 'try to convert an object to a string. return invalid if can't
 '******************************************************
 Function AnyToString(any As Dynamic) As dynamic
-    if any = invalid return "invalid"
+    if NOT any <> invalid return "invalid"
     if isstr(any) return any
     if isInt(any) return itostr(any)
     if isbool(any)

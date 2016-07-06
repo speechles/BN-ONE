@@ -2,7 +2,7 @@
 '** parseSearchResultsResponse
 '**********************************************************
 
-Function parseSearchResultsResponse(response as String) As Object
+Function parseSearchResultsResponse(response as String, row as integer, mode ="" as String) As Object
 
     if response <> invalid
 
@@ -10,6 +10,7 @@ Function parseSearchResultsResponse(response as String) As Object
         jsonObj     = ParseJSON(response)
 
         if jsonObj = invalid
+	    createDialog("JSON Error!", "Error while parsing JSON response for Search Results Response", "OK", true)
             return invalid
         end if
 
@@ -21,40 +22,47 @@ Function parseSearchResultsResponse(response as String) As Object
 		
             metaData = {}
 
-            metaData.ContentType = i.Type
-			metaData.MediaType = i.MediaType
+	    metaData.ContentType = getContentType(i, mode)
+	
+	    'metaData.ContentType = i.Type
+	    metaData.MediaType = i.MediaType
+	    metaData.MediaSources = i.MediaSources
             metaData.Id = i.ItemId
-
             metaData.ShortDescriptionLine1 = firstOf(i.Name, "Unknown")
             metaData.Title = firstOf(i.Name, "Unknown")
 
             if i.Type = "Episode"
+		metaData.ShortDescriptionLine1 =  firstOf(i.Series, "Unknown")
+		episodeInfo = ""
 
-                episodeInfo = ""
+		if i.ParentIndexNumber <> invalid
+			episodeInfo = itostr(i.ParentIndexNumber)
+		end if
 
-                if i.ParentIndexNumber <> invalid
-                    episodeInfo = itostr(i.ParentIndexNumber)
-                end if
+		if i.IndexNumber <> invalid
+			episodeInfo = episodeInfo + "x" + ZeroPad(itostr(i.IndexNumber))
+		end if
 
-                if i.IndexNumber <> invalid
-                    episodeInfo = episodeInfo + "x" + ZeroPad(itostr(i.IndexNumber))
-                end if
+		if episodeInfo <> ""
+			episodeInfo = episodeInfo + " - " + firstOf(i.Name, "")
+		else
+			episodeInfo = firstOf(i.Name, "")
+		end if
 
-                if episodeInfo <> ""
-                    episodeInfo = episodeInfo + " - " + firstOf(i.Series, "")
-                else
-                    episodeInfo = firstOf(i.Series, "")
-                end if
-
-                metaData.ShortDescriptionLine2 = episodeInfo
+		metaData.ShortDescriptionLine2 = episodeInfo
 				
-            end if
+	    end if
+	    if row > 7 and row < 10
+		sizes = GetImageSizes("arced-square")
+	    else if row = 4
+		sizes = GetImageSizes("flat-portrait")
+	    else
+            	sizes = GetImageSizes("two-row-flat-landscape-custom")
+	    end if
 
-            sizes = GetImageSizes("two-row-flat-landscape-custom")
+            if i.Type = "Studio" or i.Type = "Movie" or i.Type = "BoxSet" or i.Type = "Series"
 
-            if i.MediaType = "Video" and i.Type <> "Episode"
-
-                if i.ThumbImageItemId <> "" And i.ThumbImageItemId <> invalid
+		if i.ThumbImageItemId <> "" And i.ThumbImageItemId <> invalid
                     imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.ThumbImageItemId) + "/Images/Thumb/0"
 
                     metaData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, i.ThumbImageTag)
@@ -73,7 +81,7 @@ Function parseSearchResultsResponse(response as String) As Object
 
                 end if
 
-            else if i.Type = "Episode"
+            else if i.Type = "Episode" or i.MediaType = "Video" or i.Type = "MusicAlbum" or i.MediaType = "Audio"
 
                 if i.PrimaryImageTag <> "" And i.PrimaryImageTag <> invalid
                     imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.ItemId) + "/Images/Primary/0"
@@ -86,8 +94,15 @@ Function parseSearchResultsResponse(response as String) As Object
                     metaData.SDPosterUrl = GetViewController().getThemeImageUrl("sd-landscape.jpg")
 
                 end if
+		
+                ' Set the Artist Name
+                if i.AlbumArtist <> "" And i.AlbumArtist <> invalid
+                	metaData.ShortDescriptionLine2 = i.AlbumArtist
+                else if i.Artists <> invalid And i.Artists[0] <> "" And i.Artists[0] <> invalid
+                	metaData.ShortDescriptionLine2 = i.Artists[0]
+                end if
 
-            else if i.Type = "MusicGenre" Or i.Type = "Genre"
+            else if i.Type = "MusicGenre" or i.Type = "Genre"
 
                 if i.BackdropImageItemId <> "" And i.BackdropImageItemId <> invalid
                     imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.BackdropImageItemId) + "/Images/Backdrop/0"
@@ -161,6 +176,7 @@ Function parseSearchResultsResponse(response as String) As Object
             TotalCount: totalRecordCount
         }
     else
+	createDialog("Parsing Error!", "Error parsing search results.", "OK", true)
         Debug("Error parsing search results")
     end if
 
