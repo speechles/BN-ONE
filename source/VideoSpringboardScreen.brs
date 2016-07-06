@@ -1225,24 +1225,48 @@ Sub createStreamSelectionDialog(streamType, audioStreams, subtitleStreams, playO
     if streamType = "Subtitle" then 
 		streams = subtitleStreams
 		currentIndex = playOptions.SubtitleStreamIndex
+
+		title = "None"
+		if currentIndex = invalid or currentIndex = -1 then title = title + " [Selected]"
+		dlg.SetButton("none", title)
 	else
 		streams = audioStreams
 		currentIndex = playOptions.AudioStreamIndex
 	end If
-	
-	if streamType = "Subtitle" then 
-	
-		title = "None"
-		
-		if currentIndex = invalid or currentIndex = -1 then title = title + " [Selected]"
-		dlg.SetButton("none", title)
-	end If
-	
+
 	for each stream in streams
+		' dialog maxes out at 10 buttons
+		' springboard maxes out at 6 buttons
+		' -- credit waldonnis
+		if dlg.Buttons.Count() < 10 then
 
-		if dlg.Buttons.Count() < 5 then
+			if streamType = "Subtitle" then
 
-			title = firstOf(stream.Language, "Unknown language")
+				title = firstOf(stream.Language, "Unknown language")
+
+				' Append (F) to denote a forced subtitle stream
+				if stream.isForced then
+					title += " (F)"
+				end if
+			elseif streamType = "Audio"
+				' Show stream title (if present), codec, channel layout and
+				' bracketed language in the audio stream list
+				title = firstOf(stream.Codec, "Unknown codec")
+				if toStr(stream.Codec) = "dca" then
+					title = "dts"
+				else
+					title = toStr(stream.Codec)
+				end if
+
+				title = UCase(title) + " " + firstOf(stream.ChannelLayout, "")
+
+				' Show stream title if present in addition to the codec/layout
+				if (type(stream.Title) = "String") and (Len(stream.Title) > 0) then
+					title = stream.Title + " (" + title + ")"
+				end if
+
+				title += " [" + firstof(stream.Language, "Unknown language") + "]"
+			end if
 
 			if currentIndex = stream.Index then title = title + " [Selected]"
 
@@ -1251,7 +1275,7 @@ Sub createStreamSelectionDialog(streamType, audioStreams, subtitleStreams, playO
 
 	end For
 
-    dlg.SetButton("close", "Close This Window")
+    dlg.SetButton("close", "Cancel")
     dlg.Show(true)
 End Sub
 
