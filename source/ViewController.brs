@@ -1839,9 +1839,10 @@ Sub CheckDisplayBetaHint()
     lastSeconds = last.AsSeconds()
     
     diff = nowSeconds - lastSeconds
-    
-    If diff < 7 * 24 * 60 * 60 Then
+    Apps = QueryApps()
+    If diff < 7 * 24 * 60 * 60 or AppExists(Apps, "120610") Then
         ' Message has already been displayed during the last 7 days
+	' or App has already been installed. No need to display dialog.
         return
     End If
     
@@ -1910,3 +1911,23 @@ Sub GetNewBeta()
     ' Execute Request
     response = request.PostFromStringWithTimeout("", 5)
 End Sub
+
+Function QueryApps() As String
+	connection = createObject("roDeviceInfo").GetConnectionInfo()
+	ip = connection.lookup("ip")
+	' URL
+	url = "http://"+ip+":8060/query/apps"
+	print url
+	' Prepare Request
+	request = HttpRequest(url)
+	' Execute Request
+	response = request.GetToStringWithTimeout(10)
+	return response
+End Function
+
+Function AppExists(App as String, Id As String) as Boolean
+	regex = "<app id="+chr(34)+Id+chr(34)
+	r = createObject("roRegex",regex,"i")
+	if r.ismatch(App) then return true
+	return false
+End Function
