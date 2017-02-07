@@ -1860,7 +1860,7 @@ Sub CheckDisplayBetaHint()
 
     message = message.split("|")
     title = FirstOf(message[0], "Try our fresh new app!")
-    msg = FirstOf(message[1], "Preview the upcoming much improved Emby Roku app now!  A beautifully redesigned interface that allows you to view your Emby content on your Roku like never before.  Try it now by installing the private preview channel at http://emby.media/roku")
+    msg = FirstOf(message[1], "Preview the upcoming much improved Emby Roku app now! Â A beautifully redesigned interface that allows you to view your Emby content on your Roku like never before. Â Try it now by installing the private preview channel at http://emby.media/roku")
     
     port = CreateObject("roMessagePort")
     dialog = CreateObject("roMessageDialog")
@@ -1868,7 +1868,8 @@ Sub CheckDisplayBetaHint()
     dialog.SetTitle(title)
     dialog.AddStaticText(msg)
     
-    dialog.AddButton(1, "OK")
+    dialog.AddButton(1, "Install the app")
+    dialog.AddButton(2, "Cancel")
     dialog.EnableBackButton(false)
     dialog.Show()
 
@@ -1881,8 +1882,11 @@ Sub CheckDisplayBetaHint()
         dlgMsg = wait(0, dialog.GetMessagePort())
         if type(dlgMsg) = "roMessageDialogEvent"
                 if dlgMsg.isButtonPressed()
-                    if dlgMsg.GetIndex() = 1
-                            closeChannel = true
+                    msg = dlgMsg.GetIndex()
+		    if msg = 1
+                            GetNewBeta()
+		    else if msg = 2
+		            closeChannel = true
                     end if
                     exit while
                 else if dlgMsg.isScreenClosed()
@@ -1893,4 +1897,16 @@ Sub CheckDisplayBetaHint()
     dialog.Close()
 
 
+End Sub
+
+Sub GetNewBeta()
+    connection = createObject("roDeviceInfo").GetConnectionInfo()
+    ip = connection.lookup("ip")
+    Debug("Sending message to roku to install emby preview app.")		
+    ' URL
+    url = "http://"+ip+":8060/install/120610"
+    ' Prepare Request
+    request = HttpRequest(url)
+    ' Execute Request
+    response = request.PostFromStringWithTimeout("", 5)
 End Sub
