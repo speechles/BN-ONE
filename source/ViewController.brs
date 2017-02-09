@@ -270,8 +270,12 @@ Function vcCreateHomeScreen()
 	screen.refreshBreadcrumb()
 
     screen.Show()
-
-    CheckDisplayBetaHint()
+   
+    ' only display beta dialog for devices 7.5 or higher
+    versionArr = getGlobalVar("rokuVersion")
+    If CheckMinimumVersion(versionArr, [7, 5]) then
+        CheckDisplayBetaHint()
+    end if
     
     return screen
 End Function
