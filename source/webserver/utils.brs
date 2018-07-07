@@ -40,9 +40,9 @@ function serverDbg(obj as Object, level as String, message as String, code=0 as 
             tag = tag +"[" + id + "]"
         end if
     end if
-    print tag; ".";  level; ": ";
-    if code<>0 then print "*"; Stri(code).trim(); "* ";
-    print message
+    tag = tag + "." + level + ": "
+    if code<>0 then tag = tag + "*"+ Stri(code).trim() + "* "
+    debug(tag + " - " + message)
 end function
 
 function info(obj as Object, message as String, code=0 as Integer)
