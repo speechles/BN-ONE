@@ -3,11 +3,10 @@
 '********************************************************************
 
 Sub Main()
-
+	debug("----- Starting Main -----")
 	'deleteReg ("")  ' Delete all sections
 	'Initialize globals
 	initGlobals()
-
 	'Initialize theme
 	'prepare the screen for display and get ready to begin
 	viewController = createViewController()
@@ -51,8 +50,17 @@ Sub initGlobals()
 	minor = Mid(version, 5, 2).toInt()
 	build = Mid(version, 8, 5).toInt()
 	versionStr = major.toStr() + "." + minor.toStr() + " build " + build.toStr()
-
+	debug("Your Firmware Version: "+VersionStr)
 	GetGlobalAA().AddReplace("rokuVersion", [major, minor, build])
+
+	' determine if this is first time the app ran
+	if firstOf(regRead("prefPlayMethod"),"firstrun") = "firstrun"
+		firstrun = true
+		regWrite("CleanName", "1")
+	else
+		firstrun = false
+	end if
+
 	regWrite("prefPlayMethod", "Auto")
 	regWrite("prefprivate", "0")
 	' Get channel version
@@ -63,18 +71,28 @@ Sub initGlobals()
 		entry = line.Tokenize("=")
 
 		If entry[0]="version" Then
-			Debug("--" + entry[1] + "--")
+			Debug("Blue Neon Night Version: " + MID(entry[1], 0, 4))
 			GetGlobalAA().AddReplace("channelVersion", MID(entry[1], 0, 4))
             		Exit For
         	End If
 	End For
 
-	GetGlobalAA().AddReplace("rokuUniqueId", device.GetDeviceUniqueId())
+	GetGlobalAA().AddReplace("rokuUniqueId", device.GetPublisherId())
 
 	If (major >= 6 and minor >= 1) or major >= 7 Then
 		audioDecoders = device.GetAudioDecodeInfo()
 		modelName   = device.GetFriendlyName()
+
+		' first run we can clean the device name of oddball characters
+		' only do this on first run, as doing it on later runs will
+		' possibly invalidate the generated sha1 and fail auth
+		if firstrun or firstOf(regRead("CleanName"),"0") = "1"
+			modelName = cleanname(modelName)
+		end if
+
 		modelNumber = device.GetModel()
+
+		debug("Device: " + modelName + " " + tostr(modelNumber))
  
 		' Check for surround sound codecs:
 		hasDolbyDigital = audioDecoders.doesexist("AC3")
@@ -177,7 +195,7 @@ Sub initGlobals()
 	' number increased, starting with 8.
 	if left(modelNumber,1) = "4" and major >=5 then
 		GetGlobalAA().AddReplace("maxRefFrames", 15)
-	elseif major >= 4 then
+	else if major >= 4 then
 		GetGlobalAA().AddReplace("maxRefFrames", 8)
 	else
 		GetGlobalAA().AddReplace("maxRefFrames", 5)
