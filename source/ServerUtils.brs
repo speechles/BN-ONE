@@ -245,8 +245,6 @@ End Function
 '******************************************************
 
 Function GetSessionId() As String
-
-	Debug("Getting SessionId")
 	
     	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
 
@@ -262,7 +260,6 @@ Function GetSessionId() As String
 	if response <> invalid
         	fixedResponse	= normalizeJson(response)
         	jsonObj		= ParseJSON(fixedResponse)
-		debug("Session ID :"+jsonObj[0].Id)
 		return jsonObj[0].Id
 	else
 		createDialog("Sessions Error!", "Failed to Get Sessions Id.", "OK", true)
@@ -276,7 +273,6 @@ End Function
 '******************************************************
 
 Function GetAlsoWatching() As String
-	Debug("Getting Also Watching users")
 
     	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
 
@@ -292,9 +288,7 @@ Function GetAlsoWatching() As String
 	if response <> invalid
         	fixedResponse	= normalizeJson(response)
         	jsonObj		= ParseJSON(fixedResponse)
-		debug("Session ID :"+jsonObj[0].Id)
 		also = jsonObj[0].AdditionalUsers
-		printanylist(2,also)
 		if also.count() > 0
 			for each user in also
 				if alsowatch <> ""
@@ -320,7 +314,6 @@ End Function
 '******************************************************
 
 Function GetAlsoWatchingNames() As String
-	Debug("Getting Also Watching users")
 
     	url = GetServerBaseUrl() + "/Sessions?DeviceId=" + getGlobalVar("rokuUniqueId")
 
@@ -336,9 +329,7 @@ Function GetAlsoWatchingNames() As String
 	if response <> invalid
         	fixedResponse	= normalizeJson(response)
         	jsonObj		= ParseJSON(fixedResponse)
-		debug("Session ID :"+jsonObj[0].Id)
 		also = jsonObj[0].AdditionalUsers
-		printanylist(2,also)
 		if also.count() > 0
 			for each user in also
 				if alsowatch <> ""
@@ -349,6 +340,7 @@ Function GetAlsoWatchingNames() As String
 			end for
 		end if
 		if alsowatch <> ""
+			Debug("Sessions Also Watching users: "+tostr(alsowatch))
 			return alsowatch
 		else
 			return ""

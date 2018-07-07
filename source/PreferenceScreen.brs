@@ -49,7 +49,22 @@ Function handlePreferencesScreenMessage(msg) as Boolean
 				preferenceFunctions = [
 					GetTextPreference,
 					GetPreferenceVideoQuality,
+					GetPreferenceVideoQuality,
+					GetPreferenceVideoQuality,
+					GetPreferenceResolution,
+					GetPreferenceVPlayerTimeout,
+					GetPreferenceOptionsRow,
+					GetPreferenceContinuous,
+					GetPreferenceBlingPlace,
+					GetPreferenceQuickJumpRow,
 					GetPreferenceStopMusic,
+					GetPreferenceStopMusic,
+					GetPreferenceStopMusic,
+					GetPreferenceGenreStudio,
+					GetPreferenceSearchMax,
+					GetPreferenceEpisodesMax,
+					GetPreferenceFallbackRetry,
+					GetPreferenceCustominOrder,
 					GetPreferenceTVThemeMusic,
 					GetPreferenceTVThemeMusicRepeat,
 					GetPreferenceTVThemeMusicRepeat,
@@ -59,6 +74,7 @@ Function handlePreferencesScreenMessage(msg) as Boolean
 					GetPreferenceExit,
 					GetPreferenceInteraction,
 					GetPreferenceDelEps,
+					GetPreferenceShowClock,
 					GetPreferenceShowClock,
 					GetPreferenceLatest,
 					GetPreferenceEnhancedImages,
@@ -72,6 +88,10 @@ Function handlePreferencesScreenMessage(msg) as Boolean
 					GetPreferenceSlideshow,
 					GetPreferenceSlideDuration,
 					GetPreferenceEnableTrueHD,
+					GetPreferenceDDPlus,
+					GetPreferenceDDPlus,
+					GetPreferenceMaxRefs,
+					GetPreferenceMaxLevel,
 					GetPreferenceEnableTrueHD,
 					GetPreferencedirectFlash,
 					GetPreferenceDTStoAC3,
@@ -221,11 +241,11 @@ Function handleItemOptionsScreenMessage(msg) as Boolean
             prefSelected = list[index].Id
 
             ' Save New Preference
-            if m.ItemId = "prefTwoDesc" or m.ItemId = "prefDetailStats" or m.ItemId = "prefRemWatch" or m.ItemId = "preflatest" then
+            if m.ItemId = "prefTwoDesc" or m.ItemId = "prefDetailStats" or m.ItemId = "prefRemWatch" or m.ItemId = "preflatest" or m.ItemId = "prefRemWatchSug" or m.ItemId = "prefepisodesmax" then
 		regUserWrite(m.ItemId, prefSelected)
 	    else
-		if m.ItemId = "prefTheme" or m.Itemid = "theme_color1" OR m.ItemId = "theme_color2" or m.Itemid = "theme_color3" OR m.ItemId = "theme_color4" or m.ItemId = "theme_border" then
-			if m.ItemId = "prefTheme" or m.ItemId = "theme_border"
+		if m.ItemId = "prefTheme" or m.Itemid = "theme_color1" OR m.ItemId = "theme_color2" or m.Itemid = "theme_color3" OR m.ItemId = "theme_color4" or m.ItemId = "theme_border" or m.itemId = "prefOptionsRow" or m.itemId = "prefQuickJumpRow"
+			if m.ItemId = "prefTheme" or m.ItemId = "theme_border" or m.itemId = "prefOptionsRow"
 				while m.ViewController.screens.Count() > 0
 					m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
 				end while
@@ -261,8 +281,9 @@ Function handleItemOptionsScreenMessage(msg) as Boolean
 				ui.show ()
 				sleep(1)
 				CreateObject("roAppManager").SetTheme(theme)
-			if m.ItemId = "prefTheme" or m.ItemId = "theme_border"
+			if m.ItemId = "prefTheme" or m.ItemId = "theme_border" or m.itemId = "prefOptionsRow" or m.Itemid = "prefQuickJumpRow"
 				m.ViewController.CreateHomeScreen()
+				'm.viewcontroller.Home = m.viewcontroller.CreateHomeScreen()
 			end if
 		else if m.ItemId = "prefDelAll" then
 			user = getGlobalVar("user")
@@ -275,10 +296,10 @@ Function handleItemOptionsScreenMessage(msg) as Boolean
 			if prefSelected = "no" then
 				if showRememberDialog() = "1" then
 					RegWrite(m.itemId, prefSelected)
-					while m.ViewController.screens.Count() > 0
-						m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
-					end while
-					m.viewcontroller.Logout()
+					'while m.ViewController.screens.Count() > 0
+						'm.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
+					'end while
+					'm.viewcontroller.Logout()
 				end if
 			else
 				RegWrite(m.itemId, prefSelected)
@@ -314,7 +335,7 @@ Function handleItemOptionsScreenMessage(msg) as Boolean
 End Function
 
 Function showRememberDialog()
-	return showContextViewMenuYesNoDialog("Don't Remember User?", "Are you sure you want to always use a login screen?" + chr(10) + "Choosing YES will log you out and go to the login screen."+chr(10))
+	return showContextViewMenuYesNoDialog("Don't Remember User?", "Are you sure you want to always use a login screen?" + chr(10))
 End Function
 
 '**********************************************************
@@ -378,10 +399,9 @@ Function GetPreferenceList() as Object
 	minor = Mid(version, 5, 2).toInt()
 	build = Mid(version, 8, 5).toInt()
 
-	If FirstOf(RegRead("prefDisplayName"),"") = ""
-		displayname = device.GetFriendlyName()
-	else
-		displayname = RegRead("prefDisplayName")
+	displayname = FirstOf(RegRead("prefDisplayName"),"")
+	if displayname = ""
+		displayname = firstOf(GetGlobalVar("rokuModelName"), "Unknown")
 	end if
 
 	' firmware 6
@@ -401,18 +421,117 @@ Function GetPreferenceList() as Object
             ContentType: "pref",
 			PrefType: "custom",
             ShortDescriptionLine1: "What is the name of this " + modelName + "?",
-            ShortDescriptionLine2: "e.g. Kid's Roku or Living Room",
+            ShortDescriptionLine2: "Leave blank = roku.com name",
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
         {
-            Title: "Video Quality: " + GetSelectedPreference(GetPreferenceVideoQuality(), RegRead("prefVideoQuality")),
-            ShortTitle: "What is the max video quality?",
+            Title: "Local Quality: " + GetSelectedPreference(GetPreferenceVideoQuality(), RegRead("prefVideoQuality")),
+            ShortTitle: "Maximum local video quality?",
             ID: "prefVideoQuality",
             ContentType: "pref",
 			PrefType: "list",
-            ShortDescriptionLine1: "What is the quality of the video streams?",
+            ShortDescriptionLine1: "What is the maximum quality of local video streams?",
             ShortDescriptionLine2: "Low values can cause transcoding!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Remote Quality: " + GetSelectedPreference(GetPreferenceVideoQuality(), RegRead("prefremoteVideoQuality")),
+            ShortTitle: "Maximum remote video quality?",
+            ID: "prefremoteVideoQuality",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "What is the maximum quality of remote video streams?",
+            ShortDescriptionLine2: "Low values can cause transcoding!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "LiveTV Quality: " + GetSelectedPreference(GetPreferenceVideoQuality(), RegRead("preflivetvVideoQuality")),
+            ShortTitle: "Maximum livetv video quality?",
+            ID: "preflivetvVideoQuality",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "What is the maximum quality of liveTV video streams?",
+            ShortDescriptionLine2: "Low values can cause transcoding!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Stream Resolution: " + GetSelectedPreference(GetPreferenceResolution(), firstOf(RegRead("prefreso"), "auto")),
+            ShortTitle: "Stream Resolution?",
+            ID: "prefreso",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "Maximum resolution allowed when transcoding?",
+            ShortDescriptionLine2: "Auto, 1080p or 720p"
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "VideoPlayer Timeout: " + GetSelectedPreference(GetPreferenceVPlayerTimeout(), RegRead("prefvtimeout")),
+            ShortTitle: "VideoPlayer Timeout",
+            ID: "prefvtimeout",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "What is the maximum timeout for the videoplayer?",
+            ShortDescriptionLine2: "Set this higher if you have issues",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Options Row: " + GetSelectedPreference(GetPreferenceOptionsRow(), RegRead("prefOptionsRow")),
+            ShortTitle: "Options Row Placement",
+            ID: "prefOptionsRow",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Where should the Options row be located?",
+            ShortDescriptionLine2: "Top, Bottom, or Both",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Continuous Play: " + GetSelectedPreference(GetPreferenceContinuous(), RegRead("prefContPlay")),
+            ShortTitle: "Allow Continuous Play?",
+            ID: "prefContPlay",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Should Continuous Play be used in app?",
+            ShortDescriptionLine2: "YES, NO, NO+Resume",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Options Buttons: " + GetSelectedPreference(GetPreferenceBlingPlace(), RegRead("prefBlingPlace")),
+            ShortTitle: "Options Buttons Placement",
+            ID: "prefBlingPlace",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Which ordering for the Options buttons should be used?",
+            ShortDescriptionLine2: "Original or Bling",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Quick Launch Row: " + GetSelectedPreference(GetPreferenceQuickJumpRow(), RegRead("prefQuickJumpRow")),
+            ShortTitle: "Allow Quick Launch",
+            ID: "prefQuickJumpRow",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Show a Quicklaunch Row to launch other apps?",
+            ShortDescriptionLine2: "Yes or No",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Enable Debug: " + GetSelectedPreference(GetPreferenceStopMusic(), RegRead("prefenabledebug")),
+            ShortTitle: "Enable Debug?",
+            ID: "prefenabledebug",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Would you like to enable debug logging?",
+            ShortDescriptionLine2: "Help troubleshoot the app!",
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
@@ -424,6 +543,72 @@ Function GetPreferenceList() as Object
 			PrefType: "list",
             ShortDescriptionLine1: "Stop music when leaving the Music Screen?",
             ShortDescriptionLine2: "No lets music keep playing!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Stop Theme Music: " + GetSelectedPreference(GetPreferenceStopMusic(), RegRead("prefStopThemeMusic")),
+            ShortTitle: "Stop Music?",
+            ID: "prefStopThemeMusic",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Stop music when leaving the each Screen?",
+            ShortDescriptionLine2: "No lets music keep playing!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Genre/Studio/Artist Max: " + GetSelectedPreference(GetPreferenceGenreStudio(), RegRead("prefgenrestudio")),
+            ShortTitle: "Genre/Studio/Artist Max?",
+            ID: "prefgenrestudio",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "How many tracks should appear when using by genre/studio/artist?",
+            ShortDescriptionLine2: "Higher values = Longer loading",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Search Max: " + GetSelectedPreference(GetPreferenceSearchMax(), RegRead("prefsearchmax")),
+            ShortTitle: "Search Max?",
+            ID: "prefsearchmax",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "How many items per row should the search screen return?",
+            ShortDescriptionLine2: "Higher values = Longer loading",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Episodes Max: " + GetSelectedPreference(GetPreferenceEpisodesMax(), RegUserRead("prefepisodesmax")),
+            ShortTitle: "Episodes Max?",
+            ID: "prefepisodesmax",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "How many episodes should the latest view return?",
+            ShortDescriptionLine2: "Higher values = Longer loading",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Fallback Retries: " + GetSelectedPreference(GetPreferenceFallbackRetry(), RegRead("preffallbackretry")),
+            ShortTitle: "Fallback on Error Retries?",
+            ID: "preffallbackretry",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "How many errors should the videoplayer work through?",
+            ShortDescriptionLine2: "Higher values = More retries",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Custom In-Order: " + GetSelectedPreference(GetPreferenceCustominOrder(), RegRead("prefcustominorder")),
+            ShortTitle: "Custom In-Order Items?",
+            ID: "prefcustominorder",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "How many items play for your custom in-order button?",
+            ShortDescriptionLine2: "This affects continuous play",
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
@@ -451,7 +636,7 @@ Function GetPreferenceList() as Object
         },
 	{
             Title: "Disable Cinema Mode: " + GetSelectedPreference(GetPreferenceTVThemeMusicRepeat(), RegRead("prefDisableCinema")),
-            ShortTitle: "Repeat Theme Music?",
+            ShortTitle: "Disable Cinema Mode?",
             ID: "prefDisableCinema",
             ContentType: "pref",
 			PrefType: "list",
@@ -527,12 +712,23 @@ Function GetPreferenceList() as Object
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
         {
-            Title: "Hide Watched Items: " + GetSelectedPreference(GetPreferenceShowClock(), RegUserRead("prefRemWatch")),
-            ShortTitle: "Hide watched items?",
+            Title: "Hide Latest Items: " + GetSelectedPreference(GetPreferenceShowClock(), RegUserRead("prefRemWatch")),
+            ShortTitle: "Hide watched items from latest?",
             ID: "prefRemWatch",
             ContentType: "pref",
 			PrefType: "list",
-            ShortDescriptionLine1: "Hide watched items from the latest row on the homescreen?",
+            ShortDescriptionLine1: "Hide watched items from latest?",
+            ShortDescriptionLine2: "No means watched are visible",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Hide Suggested Items: " + GetSelectedPreference(GetPreferenceShowClock(), RegUserRead("prefRemWatchSug")),
+            ShortTitle: "Hide watched items from suggested?",
+            ID: "prefRemWatchSug",
+            ContentType: "pref",
+			PrefType: "list",
+            ShortDescriptionLine1: "Hide watched items from suggested?",
             ShortDescriptionLine2: "No means watched are visible",
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
@@ -629,7 +825,7 @@ Function GetPreferenceList() as Object
         },
         {
             Title: "Detailed Statistics: " + GetSelectedPreference(GetPreferenceDetailStats(), RegUserRead("prefDetailStats")),
-            ShortTitle: "Use enhanced descriptions?",
+            ShortTitle: "Use detailed statistics?",
             ID: "prefDetailStats",
             ContentType: "pref",
             PrefType: "list",
@@ -668,7 +864,51 @@ Function GetPreferenceList() as Object
             ContentType: "pref",
             PrefType: "list",
             ShortDescriptionLine1: "Would you like to enable Dolby TrueHD/DTS-HD 7.1 pass-thru test?",
-            ShortDescriptionLine2: "This is mainly for roku4",
+            ShortDescriptionLine2: "This is for newer roku models.",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "DD+ Pass-Through: " + GetSelectedPreference(GetPreferenceDDPlus(), firstOf(RegRead("prefddplus"), "1")),
+            ShortTitle: "Allow DD+ Pass-Through?",
+            ID: "prefddplus",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "Allow DD+ Pass-Through if detected?",
+            ShortDescriptionLine2: "Auto or Off",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "AAC Downsample: " + GetSelectedPreference(GetPreferenceDDPlus(), firstOf(RegRead("prefaac2"), "1")),
+            ShortTitle: "AAC Downsample?",
+            ID: "prefaac2",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "Allow AAC 5.1 to be downsampled by the device if detected?",
+            ShortDescriptionLine2: "Auto or Off",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "Maximum RefFrames: " + GetSelectedPreference(GetPreferenceMaxRefs(), firstOf(RegRead("prefmaxrefs"), "12")),
+            ShortTitle: "Max Ref frames for h264?",
+            ID: "prefmaxrefs",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "What is the maximum reference frames allowed for auto-detection?",
+            ShortDescriptionLine2: "Min=5, Max=16",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "h264 MAX Transcode Level: " + GetSelectedPreference(GetPreferenceMaxLevel(), firstOf(RegRead("prefmaxlevel"), "51")),
+            ShortTitle: "Max Transcode Level for h264?",
+            ID: "prefmaxlevel",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "What is the maximum level you wish to set for h264 transcoding?",
+            ShortDescriptionLine2: "This can help rokuTV",
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
@@ -679,7 +919,7 @@ Function GetPreferenceList() as Object
             ContentType: "pref",
             PrefType: "list",
             ShortDescriptionLine1: "Would you like to enable 4k resolution to pass thru in h264 and MPEG4?",
-            ShortDescriptionLine2: "This is mainly for roku4",
+            ShortDescriptionLine2: "This is for newer roku models."
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
@@ -866,22 +1106,42 @@ Function GetPreferenceVideoQuality() as Object
             IsDefault: true
         },
         {
-            Title: "50.0 Mbps UHD [roku4]",
+            Title: "70.0 Mbps UHD",
+            Id: "70000",
+            IsDefault: false
+        },
+        {
+            Title: "65.0 Mbps UHD",
+            Id: "65000",
+            IsDefault: false
+        },
+        {
+            Title: "60.0 Mbps UHD",
+            Id: "60000",
+            IsDefault: false
+        },
+        {
+            Title: "55.0 Mbps UHD",
+            Id: "55000",
+            IsDefault: false
+        },
+        {
+            Title: "50.0 Mbps UHD",
             Id: "50000",
             IsDefault: false
         },
         {
-            Title: "45.0 Mbps UHD [roku4]",
+            Title: "45.0 Mbps UHD",
             Id: "45000",
             IsDefault: false
         },
         {
-            Title: "40.0 Mbps UHD [roku4]",
+            Title: "40.0 Mbps UHD",
             Id: "40000",
             IsDefault: false
         },
         {
-            Title: "35.0 Mbps UHD [roku4]",
+            Title: "35.0 Mbps UHD",
             Id: "35000",
             IsDefault: false
         },
@@ -1050,6 +1310,161 @@ Function GetPreferenceVideoQuality() as Object
     return prefOptions
 End Function
 
+Function GetPreferenceDDPlus() as Object
+    prefOptions = [
+        {
+            Title: "Auto [default]",
+            Id: "1",
+            IsDefault: true
+        },
+        {
+            Title: "Off",
+            Id: "0",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceMaxRefs() as Object
+    prefOptions = [
+        {
+            Title: "12 [default]",
+            Id: "12",
+            IsDefault: true
+        },
+        {
+            Title: "5",
+            Id: "5",
+            IsDefault: false
+        },
+        {
+            Title: "8",
+            Id: "8",
+            IsDefault: false
+        },
+        {
+            Title: "15",
+            Id: "15",
+            IsDefault: false
+        },
+        {
+            Title: "16",
+            Id: "16",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceMaxLevel() as Object
+    prefOptions = [
+        {
+            Title: "51 [default]",
+            Id: "51",
+            IsDefault: true
+        },
+        {
+            Title: "50",
+            Id: "50",
+            IsDefault: false
+        },
+        {
+            Title: "41",
+            Id: "41",
+            IsDefault: false
+        },
+        {
+            Title: "40",
+            Id: "40",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceResolution() as Object
+    prefOptions = [
+        {
+            Title: "Auto [default]",
+            Id: "auto",
+            IsDefault: true
+        },
+        {
+            Title: "1080p",
+            Id: "1080p",
+            IsDefault: false
+        },
+        {
+            Title: "720p",
+            Id: "720p",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function 
+
+Function GetPreferenceOptionsRow() as Object
+    prefOptions = [
+        {
+            Title: "Top [default]",
+            Id: "0",
+            IsDefault: true
+        },
+        {
+            Title: "Bottom",
+            Id: "1",
+            IsDefault: false
+        },
+        {
+            Title: "Both",
+            Id: "2",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+
+Function GetPreferenceBlingPlace() as Object
+    prefOptions = [
+        {
+            Title: "Original [default]",
+            Id: "0",
+            IsDefault: true
+        },
+        {
+            Title: "Bling",
+            Id: "1",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceQuickJumpRow() as Object
+    prefOptions = [
+        {
+            Title: "No [default]",
+            Id: "0",
+            IsDefault: true
+        },
+        {
+            Title: "Yes",
+            Id: "1",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
 Function GetPreferenceStopMusic() as Object
     prefOptions = [
         {
@@ -1186,6 +1601,29 @@ Function GetPreferenceTVThemeMusicRepeat() as Object
     return prefOptions
 End Function
 
+Function GetPreferenceContinuous() as Object
+    prefOptions = [
+        {
+            Title: "Yes [default]",
+            Id: "yes",
+            IsDefault: true
+        },
+        {
+            Title: "No",
+            Id: "no",
+            IsDefault: false
+        },
+        {
+            Title: "No with Resume",
+            Id: "no+",
+            IsDefault: false
+        }
+
+    ]
+
+    return prefOptions
+End Function
+
 Function GetPreferenceRememberUser() as Object
     prefOptions = [
         {
@@ -1223,13 +1661,13 @@ End Function
 Function GetPreferenceDelEps() as Object
     prefOptions = [
         {
-            Title: "Yes [default]",
-            Id: "1",
+            Title: "No [default]",
+            Id: "0",
             IsDefault: true
         },
         {
-            Title: "No",
-            Id: "0",
+            Title: "Yes",
+            Id: "1",
             IsDefault: false
         }
     ]
@@ -1350,6 +1788,68 @@ Function GetPreferenceTimeFormat() as Object
         {
             Title: "24h",
             Id: "24h",
+            IsDefault: false
+        }
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceVPlayerTimeout() as Object
+    prefOptions = [
+        {
+            Title: "30s [default]",
+            Id: "30",
+            IsDefault: true
+        },
+        {
+            Title: "45s",
+            Id: "45",
+            IsDefault: false
+        },
+        {
+            Title: "1m",
+            Id: "60",
+            IsDefault: false
+        },
+        {
+            Title: "1m15s",
+            Id: "75",
+            IsDefault: false
+        },
+        {
+            Title: "1m30s",
+            Id: "90",
+            IsDefault: false
+        },
+        {
+            Title: "1m45s",
+            Id: "105",
+            IsDefault: false
+        },
+        {
+            Title: "2m",
+            Id: "120",
+            IsDefault: false
+        },
+        {
+            Title: "2m30s",
+            Id: "150",
+            IsDefault: false
+        },
+        {
+            Title: "3m",
+            Id: "180",
+            IsDefault: false
+        },
+        {
+            Title: "3m30s",
+            Id: "210",
+            IsDefault: false
+        },
+        {
+            Title: "4m",
+            Id: "240",
             IsDefault: false
         }
     ]
@@ -1493,6 +1993,11 @@ Function GetPreferenceLatest() as Object
             Title: "/items/latest",
             Id: "1",
             IsDefault: false
+        },
+        {
+            Title: "/items/latest + Group",
+            Id: "2",
+            IsDefault: false
         }
     ]
 
@@ -1568,6 +2073,330 @@ Function GetPreferenceforceSurround() as Object
             IsDefault: false
         }
     ]
+    return prefOptions
+End Function
+
+Function GetPreferenceFallbackRetry() as Object
+    prefOptions = [
+        {
+            Title: "1 [default]",
+            Id: "1",
+            IsDefault: true
+        },
+        {
+            Title: "0 [none]",
+            Id: "0",
+            IsDefault: false
+        },
+        {
+            Title: "2",
+            Id: "2",
+            IsDefault: false
+        },
+        {
+            Title: "3",
+            Id: "3",
+            IsDefault: false
+        },
+        {
+            Title: "5",
+            Id: "5",
+            IsDefault: false
+        },
+        {
+            Title: "7",
+            Id: "7",
+            IsDefault: false
+        },
+        {
+            Title: "99 [max]",
+            Id: "99",
+            IsDefault: false
+        }
+    ]
+    return prefOptions
+End Function
+
+Function GetPreferenceCustominOrder() as Object
+    prefOptions = [
+        {
+            Title: "3 [default]",
+            Id: "3",
+            IsDefault: true
+        },
+        {
+            Title: "7",
+            Id: "7",
+            IsDefault: false
+        },
+        {
+            Title: "6",
+            Id: "6",
+            IsDefault: false
+        },
+        {
+            Title: "5",
+            Id: "5",
+            IsDefault: false
+        },
+        {
+            Title: "4",
+            Id: "4",
+            IsDefault: false
+        },
+        {
+            Title: "2",
+            Id: "2",
+            IsDefault: false
+        }
+    ]
+    return prefOptions
+End Function
+
+Function GetPreferenceGenreStudio() as Object
+    prefOptions = [
+        {
+            Title: "200 [default]",
+            Id: "200",
+            IsDefault: true
+        },
+        {
+            Title: "50",
+            Id: "50",
+            IsDefault: false
+        },
+        {
+            Title: "100",
+            Id: "100",
+            IsDefault: false
+        },
+        {
+            Title: "300",
+            Id: "300",
+            IsDefault: false
+        },
+        {
+            Title: "400",
+            Id: "400",
+            IsDefault: false
+        },
+        {
+            Title: "500",
+            Id: "500",
+            IsDefault: false
+        },
+        {
+            Title: "1000",
+            Id: "1000",
+            IsDefault: false
+        },
+        {
+            Title: "1500",
+            Id: "1500",
+            IsDefault: false
+        },
+        {
+            Title: "2000",
+            Id: "2000",
+            IsDefault: false
+        },
+        {
+            Title: "2500",
+            Id: "2500",
+            IsDefault: false
+        },
+        {
+            Title: "5000",
+            Id: "5000",
+            IsDefault: false
+        },
+        {
+            Title: "0 (No Limit)",
+            Id: "0",
+            IsDefault: false
+        }
+
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceSearchMax() as Object
+    prefOptions = [
+        {
+            Title: "50 [default]",
+            Id: "50",
+            IsDefault: true
+        },
+        {
+            Title: "25",
+            Id: "25",
+            IsDefault: false
+        },
+        {
+            Title: "75",
+            Id: "75",
+            IsDefault: false
+        },
+        {
+            Title: "100",
+            Id: "100",
+            IsDefault: false
+        },
+        {
+            Title: "125",
+            Id: "125",
+            IsDefault: false
+        },
+        {
+            Title: "150",
+            Id: "150",
+            IsDefault: false
+        },
+        {
+            Title: "175",
+            Id: "175",
+            IsDefault: false
+        },
+        {
+            Title: "200",
+            Id: "200",
+            IsDefault: false
+        },
+        {
+            Title: "250",
+            Id: "250",
+            IsDefault: false
+        },
+        {
+            Title: "300",
+            Id: "300",
+            IsDefault: false
+        },
+        {
+            Title: "350",
+            Id: "350",
+            IsDefault: false
+        },
+        {
+            Title: "500",
+            Id: "500",
+            IsDefault: false
+        }
+
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceEpisodesMax() as Object
+    prefOptions = [
+        {
+            Title: "100 [default]",
+            Id: "100",
+            IsDefault: true
+        },
+        {
+            Title: "200",
+            Id: "200",
+            IsDefault: false
+        },
+        {
+            Title: "300",
+            Id: "300",
+            IsDefault: false
+        },
+        {
+            Title: "400",
+            Id: "400",
+            IsDefault: false
+        },
+        {
+            Title: "500",
+            Id: "500",
+            IsDefault: false
+        },
+        {
+            Title: "750",
+            Id: "750",
+            IsDefault: false
+        },
+        {
+            Title: "1000",
+            Id: "1000",
+            IsDefault: false
+        },
+        {
+            Title: "1500",
+            Id: "1500",
+            IsDefault: false
+        }
+
+    ]
+
+    return prefOptions
+End Function
+
+Function GetPreferenceInstantMix() as Object
+    prefOptions = [
+        {
+            Title: "100 [default]",
+            Id: "100",
+            IsDefault: true
+        },
+        {
+            Title: "50",
+            Id: "50",
+            IsDefault: false
+        },
+        {
+            Title: "200",
+            Id: "200",
+            IsDefault: false
+        },
+        {
+            Title: "300",
+            Id: "300",
+            IsDefault: false
+        },
+        {
+            Title: "400",
+            Id: "400",
+            IsDefault: false
+        },
+        {
+            Title: "500",
+            Id: "500",
+            IsDefault: false
+        },
+        {
+            Title: "1000",
+            Id: "1000",
+            IsDefault: false
+        },
+        {
+            Title: "1500",
+            Id: "1500",
+            IsDefault: false
+        },
+        {
+            Title: "2000",
+            Id: "2000",
+            IsDefault: false
+        },
+        {
+            Title: "2500",
+            Id: "2500",
+            IsDefault: false
+        },
+        {
+            Title: "5000",
+            Id: "5000",
+            IsDefault: false
+        }
+
+    ]
+
     return prefOptions
 End Function
 

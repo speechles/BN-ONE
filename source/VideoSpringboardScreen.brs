@@ -28,12 +28,21 @@ Function createVideoSpringboardScreen(context, index, viewController) As Object
 	
 	obj.PlayOptions = {}
 
-    obj.Screen.SetDescriptionStyle("movie")
-
-    if NOT AudioPlayer().IsPlaying AND firstOf(RegRead("prefThemeMusic"), "yes") = "yes" then
-        AudioPlayer().PlayThemeMusic(obj.Item)
-        obj.Cleanup = baseStopAudioPlayer
-    end if
+	obj.Screen.SetDescriptionStyle("movie")
+	obj.Cleanup = baseStopAudioPlayer
+	NoStop = FirstOf(RegRead("prefStopThemeMusic"),"0")
+	LastSeries = FirstOf(getGlobalVar("LastSeries"),"")
+	if obj.Item.seriesName <> invalid and obj.Item.seriesName <> ""
+		AddThis = obj.Item.seriesName
+	else
+		AddThis = obj.Item.Title
+	end if
+	if NoStop = "0" OR AudioPlayer().IsPlaying = false
+		if firstOf(RegRead("prefThemeMusic"), "yes") = "yes" AND LastSeries <> AddThis
+			AudioPlayer().PlayThemeMusic(obj.Item)
+			GetGlobalAA().AddReplace("LastSeries", AddThis)
+		end if
+	end if
 
     return obj
 
@@ -48,20 +57,36 @@ Sub videoSetupButtons()
 
 	video = m.metadata
 	cast = 0
-    if video.ContentType = "Program" And video.PlayAccess = "Full"
-	
-        if canPlayProgram(video)
+	LastSeries = FirstOf(getGlobalVar("LastSeries"),"")
+	NoStop = FirstOf(RegRead("prefStopThemeMusic"),"0")
+	if NOT video.seriesName <> invalid
+		if NOT LastSeries = video.Title
+    			if firstOf(RegRead("prefThemeMusic"), "yes") = "yes" then
+ 				AudioPlayer().PlayThemeMusic(video)
+				GetGlobalAA().AddReplace("LastSeries", video.Title)
+			end if
+		end if
+	else
+		if NOT LastSeries = video.seriesName
+			GetGlobalAA().AddReplace("LastSeries", video.seriesName)
+    			if firstOf(RegRead("prefThemeMusic"), "yes") = "yes" then
+ 				AudioPlayer().PlayThemeMusic(video)
+			end if
+		end if
+	end if
+		
+	if video.ContentType = "Program" And video.PlayAccess = "Full"
+		if canPlayProgram(video)
 			m.AddButton("Play", "play")
-        end if
-
-        if video.TimerId <> invalid
+		end if
+		if video.TimerId <> invalid
 			m.AddButton("Cancel Recording", "cancelrecording")
 			
-        else if canRecordProgram(video)
+        	else if canRecordProgram(video)
 			m.AddButton("Schedule Recording", "record")
-        end if
+		end if
 
-    else if (video.LocationType <> "Virtual" or video.ContentType = "TvChannel") And video.PlayAccess = "Full"
+	else if (video.LocationType <> "Virtual" or video.ContentType = "TvChannel") And video.PlayAccess = "Full"
 
 		' This screen is also used for books and games, so don't show a play button
 		if video.MediaType = "Video" then
@@ -74,19 +99,19 @@ Sub videoSetupButtons()
 			end if
 		end if
 
-        if video.Chapters <> invalid and video.Chapters.Count() > 0
+		if video.Chapters <> invalid and video.Chapters.Count() > 0
 			m.AddButton("Play from scene", "scenes")
-        end if
+		end if
 
-        if video.LocalTrailerCount <> invalid and video.LocalTrailerCount > 0
-            if video.LocalTrailerCount > 1
+		if video.LocalTrailerCount <> invalid and video.LocalTrailerCount > 0
+			if video.LocalTrailerCount > 1
 				m.AddButton("Trailers", "trailers")
 				cast = 1
-            else
+			else
 				m.AddButton("Trailer", "trailer")
 				cast = 1
-            end if
-        end if
+			end if
+		end if
 		audioStreams = []
 		subtitleStreams = []
 
@@ -97,27 +122,26 @@ Sub videoSetupButtons()
 			end For
 		end if
 
-        if audioStreams.Count() > 1 Or subtitleStreams.Count() > 0
-            m.AddButton("Audio & Subtitles", "streams")
-        end if
-
+		if audioStreams.Count() > 1 Or subtitleStreams.Count() > 0
+			m.AddButton("Audio & Subtitles ...", "streams")
+		end if
 		m.audioStreams = audioStreams
 		m.subtitleStreams = subtitleStreams
-    end if
+	end if
 
-    'if m.screen.CountButtons() < 1
-	'm.AddButton("Open", "open")
-    'end if
+    	if m.screen.CountButtons() < 1 and video.ContentType <> "Person" and video.LocationType <> "Virtual"
+		m.AddButton("Open", "open")
+    	end if
 
-    ' Check for people
-     if video.People <> invalid and video.People.Count() > 0 and cast = 0 then
+	' Check for people
+	if video.People <> invalid and video.People.Count() > 0 and cast = 0 then
 
 		if video.MediaType = "Video" then
 			m.AddButton("Cast & Crew", "cast")
 		else
 			m.AddButton("People", "people")
 		end If
-     end if
+	end if
 	if video.ContentType = "Person"
 		m.AddButton("Filmography", "filmography")
 		if Video.IsFavorite then
@@ -126,10 +150,14 @@ Sub videoSetupButtons()
 			m.AddButton("Mark this person as a Favorite", "markfavorite")
 		end if
 	end if
-	if m.screen.CountButtons() < 5 and Video.FullDescription <> invalid and  Video.FullDescription <> "" and Video.FullDescription.len() > 50 then
-		m.AddButton("Show more of the Description", "description")
+
+	if video.ContentType = "Playlist" and video.MediaType = "Video"
+		m.AddButton("View Playlist Items", "viewplaylist")
 	end if
-    ' rewster: TV Program recording does not need a more button, and displaying it stops the back button from appearing on programmes that have past
+	if m.screen.CountButtons() < 5 and Video.FullDescription <> invalid 'and  Video.FullDescription <> "" and Video.FullDescription.len() > 50 then
+		m.AddButton("Show Overview/Info", "description")
+	end if
+	' rewster: TV Program recording does not need a more button, and displaying it stops the back button from appearing on programmes that have past
 	if video.ContentType <> "Program"
     		versionArr = getGlobalVar("rokuVersion")
 		If CheckMinimumVersion(versionArr, [6, 1]) then
@@ -144,14 +172,18 @@ Sub videoSetupButtons()
 	    		surroundSoundDCA = surroundSound AND audioOutput51 'AND (RegRead("fivepointoneDCA", "preferences", "1") = "1")
 	    		surroundSound = surroundSound AND audioOutput51 'AND (RegRead("fivepointone", "preferences", "1") = "1")
 		end if
+		audioDDPlus = FirstOf(getGlobalVar("audioDDPlus"), false)
 		AH = ""
 		if SurroundSound then
-			if audioOutput51 then
+			if audioDDPlus then
+				AH = AH + " DD+"
+			else if audioOutput51 then
 				AH = AH + " DD"
 			end if
 			if SurroundSoundDCA then
 				AH = AH + " DTS"
 			end if
+
 		else
 			AH = " Stereo"
 		end if
@@ -163,13 +195,22 @@ Sub videoSetupButtons()
 		if AH <> invalid and AH <> "" then
 			 Extras = Extras + AH
 		end if
-		m.AddButton("More... " + Extras, "more")
+		GetGlobalAA().AddReplace("adddelete", "0")
+		if m.screen.CountButtons() < 5
+    			' delete
+			DeleteAll = firstOf(RegRead("prefDelAll"), "0")
+    			if video.CanDelete and DeleteAll = "1" Then
+        			m.AddButton("Delete Item", "delete")
+				GetGlobalAA().AddReplace("adddelete", "1")
+    			end if
+		end if
+
+		m.AddButton("More ... " + Extras, "more")
 	end if
 
-    if m.buttonCount = 0
+	if m.buttonCount = 0
 		m.AddButton("Back", "back")
-    end if
-
+	end if
 End Sub
 
 '**********************************************************
@@ -298,7 +339,7 @@ Function handleVideoSpringboardScreenMessage(msg) As Boolean
     if type(msg) = "roSpringboardScreenEvent" then
 
 		item = GetFullItemMetadata(m.metadata, false, {})
-		itemId = item.Id
+		if item <> invalid then itemId = item.Id
 		viewController = m.ViewController
 		screen = m
 
@@ -310,10 +351,9 @@ Function handleVideoSpringboardScreenMessage(msg) As Boolean
 
             if buttonCommand = "play" then
 
-				if firstOf(m.PlayOptions.HasSelection, false) = false then
-					m.PlayOptions = {}
-				end if
-				
+		if firstOf(m.PlayOptions.HasSelection, false) = false then
+			m.PlayOptions = {}
+		end if		
                 m.PlayOptions.PlayStart = 0
 				m.ViewController.CreatePlayerForItem([item], 0, m.PlayOptions)
 
@@ -322,22 +362,26 @@ Function handleVideoSpringboardScreenMessage(msg) As Boolean
 
             else if buttonCommand = "resume" then
 
-				if firstOf(m.PlayOptions.HasSelection, false) = false then
-					m.PlayOptions = {}
-				end if
-				
+		if firstOf(m.PlayOptions.HasSelection, false) = false then
+			m.PlayOptions = {}
+		end if	
                 m.PlayOptions.PlayStart = item.BookmarkPosition
-				m.ViewController.CreatePlayerForItem([item], 0, m.PlayOptions)
+		m.ViewController.CreatePlayerForItem([item], 0, m.PlayOptions)
 
                 ' Refresh play data after playing.
                 m.refreshOnActivate = true
 
             else if buttonCommand = "scenes" then
                 newScreen = createVideoChaptersScreen(viewController, item, m.PlayOptions)
-				newScreen.ScreenName = "Chapters" + itemId
+		newScreen.ScreenName = "Chapters" + itemId
                 viewController.InitializeOtherScreen(newScreen, [item.Title, "Scenes"])
-				newScreen.Show()
+		newScreen.Show()
 
+	    else if buttonCommand = "viewplaylist"
+                newScreen = createPlaylistScreen(viewController, item)
+		newScreen.ScreenName = "Playlist" + itemId
+                viewController.InitializeOtherScreen(newScreen, [item.Title, "Playlist"])
+		newScreen.Show()
             else if buttonCommand = "trailer" then
                 options = {
 			PlayStart: 0
@@ -352,10 +396,26 @@ Function handleVideoSpringboardScreenMessage(msg) As Boolean
             else if buttonCommand = "cancelrecording" then
 		m.CancelLiveTvTimer(item)
 	    else if buttonCommand = "description" then
-        	newScreen = createTextDescriptionScreen(m.ViewController, item)
-		newScreen.ScreenName = "Text" + itemId
-        	m.ViewController.InitializeOtherScreen(newScreen, ["","Description"])
+		if item.FullDescription <> "" 
+        		newScreen = createTextDescriptionScreen(m.ViewController, item)
+			newScreen.ScreenName = "Text" + itemId
+        		m.ViewController.InitializeOtherScreen(newScreen, [item.Title,"Overview"])
+		else
+			GetGlobalAA().AddReplace("theitem", item)
+        		newScreen = createMediaInfoScreen(m.ViewController)
+			newScreen.ScreenName = "MediaInfo" + item.Id
+        		m.ViewController.InitializeOtherScreen(newScreen, [""])
+		end if
 		newScreen.Show()
+		return true
+    	    else if buttonCommand = "delete" then
+		springboardDeleteItem(item)
+		return true
+    	    else if buttonCommand = "open" then
+		GetViewController().CreateScreenForItem(Item, 0, [item.Title])
+		return true
+    	    else if buttonCommand = "playme" then
+		GetViewController().CreateScreenForItem(Item, 0, [item.Title])
 		return true
             else if buttonCommand = "streams" then
                 m.ShowStreamsDialog(item)
@@ -475,27 +535,92 @@ Function createSpecialFeaturesScreen(viewController as Object, item As Object) A
 
 	' TODO: Add option to poster screen to play item directly when selected
 
-    obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
+	obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
 	obj.GetDataContainer = getSpecialFeaturesDataContainer
-
 	obj.playOnSelection = true
 
-    return obj
+	return obj
 	
 End Function
 
 Function getSpecialFeaturesDataContainer(viewController as Object, item as Object) as Object
 
-    items = getSpecialFeatures(item.Id)
+	items = getSpecialFeatures(item.Id)
 
-    if items = invalid
-        return invalid
-    end if
+	if items = invalid
+		return invalid
+	end if
 
 	obj = CreateObject("roAssociativeArray")
 	obj.names = []
 	obj.keys = []
 	obj.items = items
+
+	return obj
+
+End Function
+
+'**********************************************************
+'** createAdditionalScreen
+'**********************************************************
+
+Function createAdditionalScreen(viewController as Object, item As Object) As Object
+
+	' TODO: Add option to poster screen to play item directly when selected
+
+	obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
+	obj.GetDataContainer = getAdditionalDataContainer
+	obj.playOnSelection = true
+
+	return obj
+	
+End Function
+
+Function getAdditionalDataContainer(viewController as Object, item as Object) as Object
+
+	items = getAdditionalParts(item.Id)
+
+	if items = invalid
+		return invalid
+	end if
+
+	obj = CreateObject("roAssociativeArray")
+	obj.names = []
+	obj.keys = []
+	obj.items = items.items
+
+	return obj
+
+End Function
+
+'**********************************************************
+'** createPlaylistScreen
+'**********************************************************
+
+Function createPlaylistScreen(viewController as Object, item As Object) As Object
+
+	' TODO: Add option to poster screen to play item directly when selected
+
+	obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
+	obj.GetDataContainer = getPlaylistDataContainer
+	obj.playOnSelection = true
+
+	return obj
+	
+End Function
+
+Function getPlaylistDataContainer(viewController as Object, item as Object) as Object
+
+	items = getPlaylistParts(item.Id)
+
+	if items = invalid
+		return invalid
+	end if
+
+	obj = CreateObject("roAssociativeArray")
+	obj.names = []
+	obj.keys = []
+	obj.items = items.items
 
 	return obj
 
@@ -509,24 +634,22 @@ Function createLocalTrailersScreen(viewController as Object, item As Object) As 
 
 	' TODO: Add option to poster screen to play item directly when selected
 
-    obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
-
+	obj = CreatePosterScreen(viewController, item, "flat-episodic-16x9")
 	obj.GetDataContainer = getLocalTrailersDataContainer
-
 	obj.playOnSelection = true
 
-    return obj
+	return obj
 
 End Function
 
 
 Function getLocalTrailersDataContainer(viewController as Object, item as Object) as Object
 
-    items = getLocalTrailers(item.Id)
+	items = getLocalTrailers(item.Id)
 
-    if items = invalid
-        return invalid
-    end if
+	if items = invalid
+		return invalid
+	end if
 
 	obj = CreateObject("roAssociativeArray")
 	obj.names = []
@@ -543,15 +666,18 @@ End Function
 
 function createTextDescriptionScreen(viewController as Object, item as Object) as Object
 
+	GetGlobalAA().AddReplace("theitem", item)
 	obj = CreateObject("roAssociativeArray")
 	initBaseScreen(obj, viewController)
 	contenttype = item.contenttype
     	screen = CreateObject("roParagraphScreen")
 	screen.SetMessagePort(obj.Port)
     	screen.SetTitle(item.title)
-	screen.SetBreadCrumbText("","Description")
-	if contenttype = "Episode" then
+	screen.SetBreadCrumbText(item.Title,"Overview")
+	if contenttype = "Episode" and item.SeriesName <> invalid
 		screen.AddHeaderText(item.SeriesName+":"+chr(10)+item.Title)
+	else if item.Tagline <> invalid
+		screen.AddHeaderText(item.Title+chr(10)+item.Tagline)
 	else
 		screen.AddHeaderText(item.Title)
 	end if
@@ -559,12 +685,556 @@ function createTextDescriptionScreen(viewController as Object, item as Object) a
 	text = reg.ReplaceAll(item.fulldescription,"")
 	reg = CreateObject("roRegex", chr(10), "")
 	text = reg.ReplaceAll(text," ")
-	'lines = text.Split(chr(10))
-	'for each line in lines
-		screen.AddParagraph(text)
-	'end for
+	screen.AddParagraph(text)
 	screen.AddParagraph(" ")
     	screen.AddButton(1, "OK")
+	if item.mediasources <> invalid and item.mediasources[0] <> invalid and item.LocationType <> "Virtual"
+    		screen.AddButton(2, "Media Information")
+	end if
+    	screen.Show()
+
+	obj.Screen = screen
+	obj.HandleMessage = paraHandleMessage
+
+  	return obj
+End Function
+
+Function paraHandleMessage(msg) As Boolean
+	item = FirstOf(GetGlobalVar("theitem"),"")
+  	handled = false
+  	if type(msg) = "roParagraphScreenEvent" then
+    		handled = true
+    		if msg.isScreenClosed() then
+      			m.ViewController.PopScreen(m)
+		else if msg.isButtonPressed() then
+			if msg.GetIndex() = 2
+        			newScreen = createMediaInfoScreen(m.ViewController)
+				newScreen.ScreenName = "MediaInfo" + item.Id
+        			m.ViewController.InitializeOtherScreen(newScreen, [""])
+				newScreen.Show()
+			end if
+			m.Screen.Close()
+    		end if
+	end if
+	return handled
+End Function
+
+'**********************************************************
+'** createMediaInfoScreen
+'**********************************************************
+
+function createMediaInfoScreen(viewController as Object) as Object
+	item = FirstOf(GetGlobalVar("theitem"),"")
+	obj = CreateObject("roAssociativeArray")
+	initBaseScreen(obj, viewController)
+    	screen = CreateObject("roTextScreen")
+	screen.SetMessagePort(obj.Port)
+    	screen.SetTitle("Media Information")
+	screen.SetHeaderText("Media Sources")
+	screen.SetBreadCrumbText(item.Title,"Media Information")
+	di = CreateObject("roDeviceInfo")
+	version = di.GetVersion()
+	major = Mid(version, 3, 1).toInt()
+	debug("::Media Information:: "+item.Title)
+	text = "--- Media Details for "+ Item.Title + " ---"+chr(10)
+	for each mediasection in item.mediasources[0]
+		if left(type(item.mediasources[0][mediasection]),2) <> "ro"
+			text = text + mediasection  + ": " + tostr(item.mediasources[0][mediasection]) + chr(10)
+		end if
+	end for
+	text = text + chr(10)
+	count = 0
+	for each mediasource in item.mediasources[0].MediaStreams
+		text = text + "---- Media Source # "+tostr(count)+" ----" + chr(10)
+		count = count + 1
+		for each mediaitem in mediasource
+			text = text + mediaitem + ": " + tostr(mediasource[mediaitem]) + chr(10)
+		end for
+		text = text + chr(10)
+	end for
+	if major >= 7
+		text = text + chr(10) + "---- OS7 Compatibility ----"+chr(10)
+		di = CreateObject("roDeviceInfo")
+		for each mediasource in item.mediasources[0].MediaStreams
+			if mediasource.Type = "Video"
+				codec = lcase(mediasource.codec)
+				if codec = "h264"
+					codec = "mpeg4 avc"
+				else if codec = "mpeg1video"
+					codec = "mpeg1"
+				else if codec = "mpeg2video"
+					codec = "mpeg2"
+				end if
+				if mediasource.level <> invalid
+					l = tostr(mediasource.level)
+					level = left(l,1) + "." + right(l,1)
+				else
+					level = ""
+				end if
+				if codec <> ""
+					if mediasource.profile <> invalid
+						profile = lcase(mediasource.profile)
+					else
+						profile = ""
+					end if
+					container = ""
+					if item.mediasources[0] <> invalid
+						if item.mediasources[0].container <> invalid
+							container = lcase(item.mediasources[0].container)
+						end if
+					end if
+					attrib = {
+						Codec: codec
+						Profile: profile
+						Level: level
+						Container: container
+					}
+					for each i in attrib
+						text = text + "[Has Video] "+i+": "
+						m = attrib[i]
+						if type(m) = "roString"
+							text = text +m
+						else if type(m) = "roInteger" or type(m) = "roInt"
+							text = text + itostr(m)
+						else if type(m) = "roBoolean"
+							text = text + tostr(m)
+						end if
+						text = text + chr(10)
+					end for
+					d = di.CanDecodeVideo(attrib)
+					for each i in d
+						text = text + "[Can Decode Video] "+i+": "
+						m = d[i]
+						if type(m) = "roArray"
+							for each j in m
+								if type(j) = "roString"
+									text = text +"'"+j+"' "
+								else if type(j) = "roInteger" or type(j) = "roInt"
+									text = text + "'"+itostr(j)+"' "
+								end if
+							end for
+							text = text + chr(8) + chr(10)
+						else if type(m) = "roString"
+							text = text + m + chr(10)
+						else if type(m) = "roInteger" or type(m) = "roInt"
+							text = text + itostr(m) + chr(10)
+						else if type(m) = "roBoolean"
+							text = text + tostr(m) + chr(10)
+						else
+							text = text + chr(10)
+						end if
+					end for
+				end if
+			else if mediasource.Type = "Audio"
+				if mediasource.bitrate <> invalid
+					bitrate = Int(mediasource.bitrate / 1000)
+				else
+					bitrate = ""
+				end if
+				if mediasource.profile <> invalid
+					profile = lcase(mediasource.profile)
+				else
+					profile = ""
+				end if
+				container = ""
+				if item.mediasources[0] <> invalid
+					if item.mediasources[0].container <> invalid
+						container = lcase(item.mediasources[0].container)
+					end if
+				end if
+					
+				attrib = {
+					Codec: lcase(mediasource.codec)
+					Bitrate: bitrate
+					Container: container
+					ChCnt: mediasource.channels
+					Profile: profile
+					SampleRate: mediasource.samplerate
+				}
+				for each i in attrib
+					text = text + "[Has Audio] "+i+": "
+					m = attrib[i]
+					if type(m) = "roString"
+						text = text +m
+					else if type(m) = "roInteger" or type(m) = "roInt"
+						text = text + itostr(m)
+					else if type(m) = "roBoolean"
+						text = text + tostr(m)
+					end if
+					text = text + chr(10)
+				end for
+				d = di.CanDecodeAudio(attrib)
+				for each i in d
+					text = text + "[Can Decode Audio] "+i+": "
+					m = d[i]
+					if type(m) = "roArray"
+						for each j in m
+							if type(j) = "roString"
+								text = text +"'"+j+ "' "
+							else if type(j) = "roInteger" or type(j) = "roInt"
+								text = text + "'"+itostr(j) + "' "
+							end if
+						end for
+						text = text + chr(10)
+					else if type(m) = "roString"
+						text = text + m + chr(10)
+					else if type(m) = "roInteger" or type(m) = "roInt"
+						text = text + itostr(m) + chr(10)
+					else if type(m) = "roBoolean"
+						text = text + tostr(m) + chr(10)
+					else
+						text = text + chr(10)
+					end if
+				end for
+
+			end if
+		end for
+	end if
+
+	'lines = text.Split(chr(10))
+	'for each line in lines
+		screen.AddText(text)
+	'end for
+    	screen.AddButton(1, "OK")
+    	screen.Show()
+
+	obj.Screen = screen
+	obj.HandleMessage = textMediaHandleMessage
+
+  	return obj
+End Function
+
+Function textMediaHandleMessage(msg) As Boolean
+  	handled = false
+  	if type(msg) = "roTextScreenEvent" then
+    		handled = true
+    		if msg.isScreenClosed() then
+      			m.ViewController.PopScreen(m)
+		else if msg.isButtonPressed() then
+			m.Screen.Close()
+    		end if
+	end if
+	return handled
+End Function
+
+'**********************************************************
+'** createDeviceInfoScreen
+'**********************************************************
+
+function createDevicenfoScreen(viewController as Object) as Object
+	obj = CreateObject("roAssociativeArray")
+	initBaseScreen(obj, viewController)
+    	screen = CreateObject("roTextScreen")
+	screen.SetMessagePort(obj.Port)
+    	screen.SetTitle("Device Information")
+	screen.SetHeaderText("About Your Device")
+
+	text = ""
+	di = CreateObject("roDeviceInfo")
+	if FindMemberFunction(di, "GetVersion") <> invalid then
+		if di.GetVersion() <> invalid
+			version = di.GetVersion()
+			major = Mid(version, 3, 1).toInt()
+		else
+			major = 7
+		end if
+	else
+		major = 7
+	end if
+
+	if FindMemberFunction(di, "GetModel") <> invalid then
+		if di.GetModel() <> invalid
+			text = text + "Model: "+ di.GetModel() + chr(10)
+		end if
+	end if
+
+
+	if FindMemberFunction(di, "GetModelDisplayName") <> invalid then
+		if di.GetModelDisplayName() <> invalid
+			text = text + "Model Display Name: "+ di.GetModelDisplayName() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetModelDetails") <> invalid then
+		if di.GetModelDetails() <> invalid
+			d = di.GetModelDetails()
+			for each i in d
+				text = text + "[Model Details] "+i+": "+d[i]+chr(10)
+			end for
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetVersion") <> invalid then
+		if di.GetVersion() <> invalid
+			text = text + "Version: "+ di.GetVersion() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetDeviceUniqueId") <> invalid then
+		if di.GetDeviceUniqueId() <> invalid
+			text = text + "Device Unique ID: " + di.GetDeviceUniqueId() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetFriendlyName") <> invalid then
+		if di.GetFriendlyName() <> invalid
+			text = text + "Friendly Name: " + di.GetFriendlyName() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetAdvertisingId") <> invalid then
+		if di.GetAdvertisingId() <> invalid
+			text = text + "Adversting ID: " + di.GetAdvertisingId() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "IsAdIdTrackingDisabled") <> invalid then
+		if di.IsAdIdTrackingDisabled() <> invalid
+			text = text + "Is AD ID Tracking Disabled: " + tostr(di.IsAdIdTrackingDisabled()) + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetPublisherId") <> invalid then
+		if di.GetPublisherId() <> invalid
+			text = text + "Publisher ID: " + di.GetPublisherId() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetDisplayType") <> invalid then
+		if di.GetDisplayType() <> invalid
+			text = text + "Display Type: " + di.GetDisplayType() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetDisplayMode") <> invalid then
+		if di.GetDisplayMode() <> invalid
+			text = text + "Display Mode: " + di.GetDisplayMode() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetDisplayAspectRatio") <> invalid then
+		if di.GetDisplayAspectRatio() <> invalid
+			text = text + "Display Aspect Ratio: " + di.GetDisplayAspectRatio() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetDisplaySize") <> invalid then
+		if di.GetDisplaySize() <> invalid
+			d = di.GetDisplaySize()
+			for each i in d
+				text = text + "[Display SIze] "+i+": "+itostr(d[i])+chr(10)
+			end for
+		end if
+	end if
+
+	if major >= 7
+
+	    if FindMemberFunction(di, "GetDisplayProperties") <> invalid then
+		if di.GetDisplayProperties() <> invalid
+			d = di.GetDisplayProperties()
+			for each i in d
+				m = d[i]
+				if type(m) = "roString"
+					text = text + "[Display Properties] "+i+": "+m+chr(10)
+				else if type(m) = "roInt"
+					text = text + "[Display Properties] "+i+": "+itostr(m)+chr(10)
+				else if type(m) = "roBoolean"
+					text = text + "[Display Properties] "+i+": "+tostr(m)+chr(10)
+				end if
+			end for
+		end if
+	    end if
+
+	    if FindMemberFunction(di, "GetSupportedGraphicsResolutions") <> invalid then
+		if di.GetSupportedGraphicsResolutions() <> invalid
+			d = di.GetSupportedGraphicsResolutions()
+			for each h in d
+				for each i in h
+					m = h[i]
+					if type(m) = "roString"
+						text = text + "[Supported Graphics Resolution] "+i+": "+m+chr(10)
+					else if type(m) = "roInt"
+						text = text + "[Supported Graphics Resolution] "+i+": "+itostr(m)+chr(10)
+					else if type(m) = "roBoolean"
+						text = text + "[Supported Graphics Resolution] "+i+": "+tostr(m)+chr(10)
+					end if
+				end for
+			end for
+		end if
+	    end if
+	end if
+
+	if FindMemberFunction(di, "GetTimeZone") <> invalid then
+		if di.GetTimeZone() <> invalid
+			text = text + "TimeZone: "+ di.GetTimeZone() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetIPAddrs") <> invalid then
+		if di.GetIPAddrs() <> invalid
+			d = di.GetIPAddrs()
+			for each i in d
+				text = text + "[IP Address] "+i+": "+d[i]+chr(10)
+			end for
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetCurrentLocale") <> invalid then
+		if di.GetCurrentLocale() <> invalid
+			text = text + "Current Locale: "+ di.GetCurrentLocale() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetCountryCode") <> invalid then
+		if di.GetCountryCode() <> invalid
+			text = text + "Country Code: "+ di.GetCountryCode() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetVideoMode") <> invalid then
+		if di.GetVideoMode() <> invalid
+			text = text + "Video Mode: "+ di.GetVideoMode() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetAudioOutputChannel") <> invalid then
+		if di.GetAudioOutputChannel() <> invalid
+			text = text + "Audio Output Channel: "+ di.GetAudioOutputChannel() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetLinkStatus") <> invalid then
+		if di.GetLinkStatus() <> invalid
+			text = text + "Link Status: "+ tostr(di.GetLinkStatus()) + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetCaptionsMode") <> invalid then
+		if di.GetCaptionsMode() <> invalid
+			text = text + "Captions Mode: "+ di.GetCaptionsMode() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetVideoMode") <> invalid then
+		if di.GetVideoMode() <> invalid
+			text = text + "Video Mode: "+ di.GetVideoMode() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetConnectionType") <> invalid then
+		if di.GetConnectionType()  <> invalid
+			text = text + "Connection Type: "+ di.GetConnectionType() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetGetExternalIp") <> invalid then
+		if di.GetExternalIp() <> invalid
+			text = text + "External IP: "+ di.GetExternalIp() + chr(10)
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetConnectionInfo") <> invalid then
+		if di.GetConnectionInfo()  <> invalid
+			d = di.GetConnectionInfo() 
+			for each i in d
+				m = d[i]
+				if type(m) = "roString"
+					text = text + "[Connection Info] "+i+": "+m+chr(10)
+				else if type(m) = "roInt"
+					text = text + "[Connection Info] "+i+": "+itostr(m)+chr(10)
+				else if type(m) = "roBoolean"
+					text = text + "[Connection Info] "+i+": "+tostr(m)+chr(10)
+				end if
+			end for
+		end if
+	end if
+
+	if FindMemberFunction(di, "GetAudioDecodeInfo") <> invalid then
+		if di.GetAudioDecodeInfo() <> invalid
+			d = di.GetAudioDecodeInfo()
+			for each i in d
+				text = text + "[Audio Decode Info] "+i+": "+d[i]+chr(10)
+			end for
+		end if
+	end if
+
+	if major >= 7
+
+	    if FindMemberFunction(di, "GetDrmInfo") <> invalid then
+		if di.GetDrmInfo() <> invalid
+			d = di.GetDrmInfo()
+			for each i in d
+				text = text + "[DRM Info] "+i+": "+d[i]+chr(10)
+			end for
+			text = text + "Sound Effects Volume: "+ itostr(di.GetSoundEffectsVolume())  + chr(10)
+		end if
+	    end if
+
+	    if FindMemberFunction(di, "GetUIResolution") <> invalid then
+		if di.GetUIResolution() <> invalid
+			d = di.GetUIResolution()
+			for each i in d
+				m = d[i]
+				if type(m) = "roString"
+					text = text + "[UI Resolution] "+i+": "+m+chr(10)
+				else if type(m) = "roInt"
+					text = text + "[UI Resolution] "+i+": "+itostr(m)+chr(10)
+				else if type(m) = "roBoolean"
+					text = text + "[UI Resolution] "+i+": "+tostr(m) + chr(10)
+				end if
+			end for
+		end if
+	    end if
+
+	end if
+
+	screen.SetBreadCrumbText("","Device Information")
+	debug("::Device Information::")
+
+	screen.AddText(text)
+    	screen.AddButton(1, "OK")
+    	screen.Show()
+
+	obj.Screen = screen
+	obj.HandleMessage = textDeviceHandleMessage
+
+  	return obj
+End Function
+
+Function textDeviceHandleMessage(msg) As Boolean
+  	handled = false
+  	if type(msg) = "roTextScreenEvent" then
+    		handled = true
+    		if msg.isScreenClosed() then
+      			m.ViewController.PopScreen(m)
+		else if msg.isButtonPressed() then
+			m.Screen.Close()
+    		end if
+	end if
+	return handled
+End Function
+
+
+'**********************************************************
+'** createDebugLogScreen
+'**********************************************************
+
+function createDebugLogScreen(viewController as Object) as Object
+
+	obj = CreateObject("roAssociativeArray")
+	initBaseScreen(obj, viewController)
+    	screen = CreateObject("roTextScreen")
+	screen.SetMessagePort(obj.Port)
+    	screen.SetTitle("Debug Logs")
+	screen.SetBreadCrumbText("","Debug Logs")
+	screen.SetHeaderText("Debug Logs")
+    	text = ReadAsciiFile("tmp:/embylog.txt")
+	'lines = text.Split(chr(10))
+	'for each line in lines
+		screen.AddText(text)
+	'end for
+    	screen.AddButton(1, "OK")
+    	screen.AddButton(2, "Clear logs")
     	screen.Show()
 
 	obj.Screen = screen
@@ -575,11 +1245,12 @@ End Function
 
 Function textHandleMessage(msg) As Boolean
   	handled = false
-  	if type(msg) = "roParagraphScreenEvent" then
+  	if type(msg) = "roTextScreenEvent" then
     		handled = true
     		if msg.isScreenClosed() then
       			m.ViewController.PopScreen(m)
 		else if msg.isButtonPressed() then
+			if msg.GetIndex() = 2 then WriteAsciiFile("tmp:/embylog.txt","")
 			m.Screen.Close()
     		end if
 	end if
@@ -644,12 +1315,13 @@ Function getSimilarScreenUrl(row as Integer, id as String) as String
     	' URL
     	url = GetServerBaseUrl()
 	query = {}
-	if row = 1 or row = 3
-		url = url  + "/Shows/" + HttpEncode(id) + "/Similar?recursive=true"
-		include = "Series"
-	else
+	
+	if row = 0
 		url = url  + "/Movies/" + HttpEncode(id) + "/Similar?recursive=true"
 		include = "Movie"
+	else
+		url = url  + "/Shows/" + HttpEncode(id) + "/Similar?recursive=true"
+		include = "Series"
 	end if
 
 	query.AddReplace("SortBy", "SortName")
@@ -811,7 +1483,7 @@ Sub createGoToDialog(item)
     	if studio.len() > 25 then series = left(studio,25) + "..."
 	dlg.SetButton("network", "-> Go To " + FirstOf(studio, "The network"))
     end if
-    if item.SeriesName <> invalid or item.contenttype = "Movie" or item.contenttype = "BoxSet"
+    if item.SeriesName <> invalid or item.contenttype = "Movie" or item.contenttype = "BoxSet" or item.contenttype = "Trailer"
 	dlg.SetButton("similar", "-> Go To Similar Titles")
     end if
     musicstop = FirstOf(GetGlobalVar("musicstop"),"0")
@@ -948,7 +1620,7 @@ End Function
 Sub springboardShowMoreDialog(item)
     dlg = createBaseDialog()
     dlg.Title = "More Options"
-    DeleteAll = firstOf(RegRead("prefDelAll"), "1")
+    DeleteAll = firstOf(RegRead("prefDelAll"), "0")
 
 	if item.MediaType = "Video" or item.MediaType = "Game" then 
 
@@ -963,7 +1635,7 @@ Sub springboardShowMoreDialog(item)
 	end if
 
     if item.SeriesName <> invalid then
-    	dlg.SetButton("favorites", "Change Favorites")
+    	dlg.SetButton("favorites", "Change Favorites ...")
     else if item.ContentType <> "Person"
 	if item.IsFavorite
 		dlg.SetButton("removefavorite", "Remove as Favorite")
@@ -974,7 +1646,12 @@ Sub springboardShowMoreDialog(item)
 
     ' delete
     if item.CanDelete and DeleteAll = "1" Then
-        dlg.SetButton("delete", "Delete Item")
+	da = FirstOf(getGlobalVar("adddelete"), "1")
+	if da = "1"
+		GetGlobalAA().AddReplace("adddelete", "0")
+	else
+        	dlg.SetButton("delete", "Delete Item")
+	end if
     end if
 
     ' Check for people
@@ -1000,6 +1677,18 @@ Sub springboardShowMoreDialog(item)
         dlg.SetButton("specials", "Special Features")
     end if
 
+	' check for additonal parts
+        if item <> invalid
+		if item.id <> invalid
+ 			if item.contenttype <> "Program" and item.contenttype <> "Recording"
+				additional = getAdditionalParts(item.Id)
+				if additional <> invalid and additional.totalcount <> invalid and additional.totalcount > 0
+					dlg.SetButton("addition", "Additional Parts")
+				end if
+			end if
+		end if
+	end if
+
 	dlg.item = item
 	dlg.parentScreen = m
 
@@ -1010,22 +1699,28 @@ Sub springboardShowMoreDialog(item)
 	if (item.LocationType <> "Virtual" or item.ContentType = "TvChannel") And item.PlayAccess = "Full" and item.MediaType = "Video" then
 		force = FirstOf(regRead("prefPlayMethod"),"Auto")
 		private = FirstOf(regRead("prefprivate"),"0")
-		if force <> "DirectPlay" then 
-			dlg.SetButton("DirectPlay", "* Force DirectPlay")
-		else
-			dlg.SetButton("DirectPlay", "* Force DirectPlay [Selected]")
-		end if
+		'if force <> "DirectPlay" then 
+		'	dlg.SetButton("DirectPlay", "* Force DirectPlay")
+		'else
+		'	dlg.SetButton("DirectPlay", "* Force DirectPlay [Selected]")
+		'end if
 
-		if force <> "DirectStream" then 
-			dlg.SetButton("DirectStream", "* Force DirectStream")
+		if left(force,6) <> "Direct" then 
+			dlg.SetButton("Direct", "* Force Direct")
 		else
-			dlg.SetButton("DirectStream", "* Force DirectStream [Selected]")
+			dlg.SetButton("Direct", "* Force Direct [Selected]")
 		end if
 
 		if force <> "Transcode" then 
 			dlg.SetButton("Transcode", "* Force Transcode")
 		else
 			dlg.SetButton("Transcode", "* Force Transcode [Selected]")
+		end if
+
+		if force <> "Trans-DS" then 
+			dlg.SetButton("Trans-DS", "* Force Transcode w/o Stream Copy")
+		else
+			dlg.SetButton("Trans-DS", "* Force Transcode w/o Stream Copy [Selected]")
 		end if
 
 		if force = "Auto" and private = "0" then 
@@ -1116,15 +1811,21 @@ Function handleMoreOptionsButton(command, data) As Boolean
 	return true
     else if command = "specials" then
         newScreen = createSpecialFeaturesScreen(m.ViewController, item)
-	newScreen.ScreenName = "Chapters" + itemId
+	newScreen.ScreenName = "Specials" + itemId
 	m.ViewController.InitializeOtherScreen(newScreen, [item.Title, "Special Features"])
+	newScreen.Show()
+	return true
+    else if command = "addition" then
+        newScreen = createAdditionalScreen(m.ViewController, item)
+	newScreen.ScreenName = "Additional" + itemId
+	m.ViewController.InitializeOtherScreen(newScreen, [item.Title, "Additional Parts"])
 	newScreen.Show()
 	return true
     else if command = "delete" then
 	springboardDeleteItem(item)
 	m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
 	return true
-    else if command = "DirectPlay" or command = "DirectStream" or command = "Transcode" or command = "Auto" then
+    else if left(command,6) = "Direct" or left(command,5) = "Trans" or command = "Auto" then
 	regWrite("prefPlayMethod",command)
 	regwrite("prefprivate", "0")
 	getDeviceProfile()
@@ -1178,8 +1879,8 @@ Sub createAudioAndSubtitleDialog(audioStreams, subtitleStreams, playOptions)
 		dlg.subtitleStreams = subtitleStreams
 		dlg.playOptions = playOptions
 
-		dlg.SetButton("audio", "Audio")
-		dlg.SetButton("subtitles", "Subtitles")
+		dlg.SetButton("audio", "Audio ...")
+		dlg.SetButton("subtitles", "Subtitles ...")
 		dlg.SetButton("close", "Close This Window")
 
 		dlg.Show(true)
@@ -1211,18 +1912,15 @@ End Function
 
 Sub createStreamSelectionDialog(streamType, audioStreams, subtitleStreams, playOptions, openParentDialog)
 
-    dlg = createBaseDialog()
-    dlg.Title = "Select " + streamType
-
+	dlg = createBaseDialog()
+	dlg.Title = "Select " + streamType
 	dlg.HandleButton = handleStreamSelectionButton
-
 	dlg.streamType = streamType
 	dlg.audioStreams = audioStreams
 	dlg.subtitleStreams = subtitleStreams
 	dlg.playOptions = playOptions
 	dlg.openParentDialog = openParentDialog
-
-    if streamType = "Subtitle" then 
+	if streamType = "Subtitle" then 
 		streams = subtitleStreams
 		currentIndex = playOptions.SubtitleStreamIndex
 
@@ -1233,50 +1931,58 @@ Sub createStreamSelectionDialog(streamType, audioStreams, subtitleStreams, playO
 		streams = audioStreams
 		currentIndex = playOptions.AudioStreamIndex
 	end If
-
 	for each stream in streams
 		' dialog maxes out at 10 buttons
 		' springboard maxes out at 6 buttons
 		' -- credit waldonnis
-		if dlg.Buttons.Count() < 10 then
-
-			if streamType = "Subtitle" then
-
-				title = firstOf(stream.Language, "Unknown language")
-
-				' Append (F) to denote a forced subtitle stream
-				if stream.isForced then
-					title += " (F)"
+		if dlg.Buttons.Count() < 9
+			if streamType = "Subtitle"
+				if stream.IsExternal
+					title = "External "
+				else
+					title = "Internal "
 				end if
-			elseif streamType = "Audio"
+				title = title + UCase(stream.Codec)
+				name = firstOf(stream.Language, "Unknown L")
+				title = title + " [" + UCase(left(name,1))+right(name,name.len()-1) +"]"
+				' Append (F) to denote a forced subtitle stream
+				if stream.isForced
+					title = title + " (Forced)"
+				else if stream.isDefault
+					title = title + " (Default)"
+				end if
+			else if streamType = "Audio"
 				' Show stream title (if present), codec, channel layout and
 				' bracketed language in the audio stream list
-				title = firstOf(stream.Codec, "Unknown codec")
-				if toStr(stream.Codec) = "dca" then
+				title = firstOf(stream.Codec, "Unknown C")
+				if toStr(stream.Codec) = "dca"
 					title = "dts"
 				else
 					title = toStr(stream.Codec)
 				end if
-
-				title = UCase(title) + " " + firstOf(stream.ChannelLayout, "")
+				chanlay = firstOf(stream.ChannelLayout, "")
+				if chanlay <> "" then chanlay = UCase(left(chanlay,1))+right(chanlay,chanlay.len()-1)
+				title = UCase(title) + " " + chanlay
 
 				' Show stream title if present in addition to the codec/layout
-				if (type(stream.Title) = "String") and (Len(stream.Title) > 0) then
+				if (type(stream.Title) = "String") and (Len(stream.Title) > 0)
 					title = stream.Title + " (" + title + ")"
 				end if
-
-				title += " [" + firstof(stream.Language, "Unknown language") + "]"
+				lang = firstof(stream.Language, "Unknown L")
+				lang = UCase(left(lang,1))+right(lang,lang.len()-1)
+				title = title + " [" + lang + "]"
+				if stream.isForced
+					title = title + " (Forced)"
+				else if stream.isDefault
+					title = title + " (Default)"
+				end if
 			end if
-
 			if currentIndex = stream.Index then title = title + " [Selected]"
-
 			dlg.SetButton(tostr(stream.Index), title)
 		end if
-
 	end For
-
-    dlg.SetButton("close", "Cancel")
-    dlg.Show(true)
+	dlg.SetButton("close", "Cancel")
+	dlg.Show(true)
 End Sub
 
 Function handleStreamSelectionButton(command, data) As Boolean

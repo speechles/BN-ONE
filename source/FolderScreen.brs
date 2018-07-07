@@ -12,13 +12,16 @@ Function createFolderScreen(viewController as Object, item as Object) As Object
 		settingsPrefix = "boxset"
 		contextMenuType = Invalid
 		RegUserWrite(settingsPrefix + "ImageType","0")
+    		imageType      = 0
 	else
 		settingsPrefix = "folders"
 		contextMenuType = "folders"
-		title = item.Title + "  ( Press * for Options )"
+		title = item.Title
+		RegUserWrite(settingsPrefix + "ImageType","1")
+    		imageType      = 1
 	End if
 
-    	imageType      = (firstOf(RegUserRead(settingsPrefix + "ImageType"), "0")).ToInt()
+    	'imageType      = (firstOf(RegUserRead(settingsPrefix + "ImageType"), "0")).ToInt(
 
 	names = [title,"Favorite "+tostr(title)]
 	keys = ["0"+tostr(item.Id), "1"+tostr(item.Id)]
@@ -33,11 +36,11 @@ Function createFolderScreen(viewController as Object, item as Object) As Object
 
 	if imageType = 0 then
 		gridStyle = "mixed-aspect-ratio"
-    Else
+	Else
 		gridStyle = "two-row-flat-landscape-custom"
-    End If
+	End If
 	
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, gridStyle)
+	screen = createPaginatedGridScreen(viewController, names, keys, loader, gridStyle)
 
 	screen.baseActivate = screen.Activate
 	screen.Activate = folderScreenActivate
@@ -54,7 +57,7 @@ Function createFolderScreen(viewController as Object, item as Object) As Object
 
 	screen.createContextMenu = folderScreenCreateContextMenu
 
-    return screen
+	return screen
 End Function
 
 Sub folderScreenActivate(priorScreen)
@@ -120,25 +123,25 @@ Function getFolderItemsQuery(row as integer, settingsPrefix as String, contentTy
 		end if
 
 		if sortBy = 1
-			query.AddReplace("SortBy", "DateCreated,SortName")
+			query.AddReplace("SortBy", "IsFolder,DateCreated,SortName")
 		else if sortBy = 2
-			query.AddReplace("SortBy", "DatePlayed,SortName")
+			query.AddReplace("SortBy", "IsFolder,DatePlayed,SortName")
 		else if sortBy = 3
-			query.AddReplace("SortBy", "PremiereDate,SortName")
+			query.AddReplace("SortBy", "IsFolder,PremiereDate,SortName")
 		else if sortBy = 4
-			query.AddReplace("SortBy", "Random,SortName")
+			query.AddReplace("SortBy", "IsFolder,Random,SortName")
 		else if sortBy = 5
-			query.AddReplace("SortBy", "PlayCount,SortName")
+			query.AddReplace("SortBy", "IsFolder,PlayCount,SortName")
 		else if sortBy = 6
-			query.AddReplace("SortBy", "CriticRating,SortName")
+			query.AddReplace("SortBy", "IsFolder,CriticRating,SortName")
 		else if sortBy = 7
-			query.AddReplace("SortBy", "CommunityRating,SortName")
+			query.AddReplace("SortBy", "IsFolder,CommunityRating,SortName")
 		else if sortBy = 8
-			query.AddReplace("SortBy", "Budget,SortName")
+			query.AddReplace("SortBy", "IsFolder,Budget,SortName")
 		else if sortBy = 9
-			query.AddReplace("SortBy", "Revenue,SortName")
+			query.AddReplace("SortBy", "IsFolder,Revenue,SortName")
 		else
-			query.AddReplace("SortBy", "SortName")
+			query.AddReplace("SortBy", "IsFolder,SortName")
 		end if
 
 		if sortOrder = 1
@@ -149,7 +152,7 @@ Function getFolderItemsQuery(row as integer, settingsPrefix as String, contentTy
 		query.AddReplace("SortOrder", "Ascending")
 		if row = 1 then query.AddReplace("Filters", "IsFavorite")
 	end if
-
+	query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
 	return query
 
 End Function

@@ -4,6 +4,97 @@
 
 
 '******************************************************
+' Can the device play 4k
+'******************************************************
+
+Function CanPlay4K() as Boolean
+
+  dev_info = CreateObject("roDeviceInfo")
+ 
+  ' Check if the Roku player can decode 4K 60fps HEVC streams or 4K 30fps vp9 streams
+  hevc_video = { Codec: "hevc", Profile: "main", Level: "5.1" }
+  vp9_video = { Codec: "vp9", Profile: "profile 0" }
+  can_decode_hevc = dev_info.CanDecodeVideo(hevc_video)
+  can_decode_vp9 = dev_info.CanDecodeVideo(vp9_video)
+  if can_decode_hevc.result <> true OR can_decode_vp9.result <> true
+    debug("4k support: Disabled (Roku player cannot decode 4K HEVC AND VP9 streams)")
+    return false
+  end if
+ 
+  ' Check if the output mode is 2160p
+  video_mode = dev_info.GetVideoMode()
+  if (Left(video_mode, 5) <> "2160p")
+    debug("4k support: Disabled (The output mode is not set to 2160p: "+ video_mode+")")
+    return false
+  end if
+ 
+  ' Check if the roku player is a TV
+  disp_prop = dev_info.GetDisplayProperties()
+  if disp_prop.internal = true then
+    debug("4k support: Enabled (The RokuTV does not have an HDMI output port, no need to check HDCP")
+    return true
+  end if
+ 
+  ' Check the roku player has an HDMI output port
+  hdmi_status = dev_info.GetHdmiTxStatus()
+  if hdmi_status = invalid
+    debug("4k support: Disabled (Bad hdmi_status)")
+    return false
+  end if
+ 
+  ' Check if HDMI is connected and has HDCP 2.2 enabled
+  if hdmi_status.IsConnected() <> true
+    debug("4k support: Disabled (No device connected to the HDMI port)")
+    return false
+  end if
+ 
+  if hdmi_status.IsHdcpActive("2.2") <> true
+    debug("4k support: Disabled (HDCP version too low)")
+    return false
+  end if
+
+  debug("4k Support: Enabled")
+  return true 
+ 
+End Function
+
+'**********************************************************
+'** Quick Launch Utilities
+'**********************************************************
+
+Function AppExists(App as String, Id As String) as Boolean
+	regex = "<app id="+chr(34)+Id+chr(34)
+	r = createObject("roRegex",regex,"i")
+	if r.ismatch(App) then return true
+	return false
+End Function
+
+Function QueryApps() As String
+	url = "http://"+GetMyIp()+":8060/query/apps"
+	request = HttpRequest(url)
+	response = request.GetToStringWithTimeout(10)
+	return response
+End Function
+
+Function GetMyIp() as String
+	connection = createObject("roDeviceInfo").GetConnectionInfo()
+	ip = connection.lookup("ip")
+	return ip
+End Function
+
+Sub LaunchApp(App as String)
+	url = "http://"+GetMyIp()+":8060/launch/"+App
+	request = HttpRequest(url)
+	response = request.PostFromStringWithTimeout("", 5)
+End Sub
+
+Sub InstallApp(App as String)
+	url = "http://"+GetMyIp()+":8060/install/"+App
+	request = HttpRequest(url)
+	response = request.PostFromStringWithTimeout("", 5)
+End Sub
+
+'******************************************************
 ' Validate parameter is the correct type
 '******************************************************
 
@@ -247,7 +338,20 @@ End Function
 '**********************************************************
 
 Sub Debug(message As String)
-    print message
+
+    if FirstOf(RegRead("prefenabledebug"),"false") = "true"
+    	' write active logs in temp
+    	fileName = "tmp:/embylog.txt"
+    	LocalFileBrowser = CreateObject("roFileSystem")
+    	if LocalFileBrowser.exists(fileName)
+    		text = ReadAsciiFile(fileName)
+    	else
+		text = ""
+    	end if
+    	WriteAsciiFile(filename,text+chr(10)+message)
+    
+   	print message
+    end if
 
 End Sub
 
@@ -472,8 +576,12 @@ End Function
 Sub SwapArray(arr, i, j, setOrigIndex=false)
     if i <> j then
         if setOrigIndex then
-            if arr[i].OrigIndex = invalid then arr[i].OrigIndex = i
-            if arr[j].OrigIndex = invalid then arr[j].OrigIndex = j
+		if arr[i] <> invalid
+			if arr[i].OrigIndex = invalid then arr[i].OrigIndex = i
+		end if
+		if arr[j] <> invalid
+			if arr[j].OrigIndex = invalid then arr[j].OrigIndex = j
+		end if
         end if
 
         temp = arr[i]
@@ -500,11 +608,11 @@ Function UnshuffleArray(arr, focusedIndex)
 
     i = 0
     while i < arr.Count()
-        if arr[i].OrigIndex = invalid then return 0
-        SwapArray(arr, i, arr[i].OrigIndex)
-        if i = arr[i].OrigIndex then i = i + 1
+	if arr[i] = invalid or arr[i].OrigIndex = invalid then return 0
+	SwapArray(arr, i, arr[i].OrigIndex)
+	if arr[i] = invalid or arr[i].OrigIndex = invalid then return 0
+	if i = arr[i].OrigIndex then i = i + 1
     end while
-
     return firstOf(item.OrigIndex, 0)
 End Function
 
@@ -794,10 +902,10 @@ End Sub
 'Print anything
 '******************************************************
 Sub PrintAny(depth As Integer, prefix As String, any As Dynamic)
-    if depth >= 10
-        print "**** TOO DEEP " + itostr(5)
-        return
-    endif
+    'if depth >= 10
+        'print "**** TOO DEEP " + itostr(5)
+        'return
+    'endif
     prefix = string(depth*2," ") + prefix
     depth = depth + 1
     str = AnyToString(any)

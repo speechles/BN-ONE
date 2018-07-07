@@ -238,18 +238,20 @@ Sub vcOnSignedIn(serverId, serverUrl, localUserId)
 	if peepsnames <> ""
 		if keepAlsoWatching(peepsnames) = "0"
 		loadingDialog = CreateObject("roOneLineDialog")
-		loadingDialog.SetTitle("Removing all Also Watching users...")
+		loadingDialog.SetTitle("Removing Also Watching users...")
 		loadingDialog.ShowBusyAnimation()
 		loadingDialog.Show()
 			sessionId = GetSessionId()
 			if sessionId <> invalid
 				r = CreateObject("roRegex", ",", "")
+				debug("Sessions Also Watching users: "+peepsnames)
 				peepsid = GetAlsoWatching()
 				for each id in r.split(peepsid)
 					result = postAlsoWatchingStatus(id, false, sessionId)
 				end for
 			end if
 		loadingDialog.close()
+		m.home.refreshBreadcrumb()
 		end if
 	end if
 End Sub
@@ -261,6 +263,7 @@ end Function
 Sub vcLogout()
 	Debug("Logout")
 	ConnectionManager().logout()
+	'RegDelete("UserId")
 	RegDelete("currentServerId")
 	' For now, until there's a chance to break the initial screen workflow into separate pieces
 	m.ShowInitialScreen()
@@ -466,6 +469,11 @@ Function vcGetStockTheme() as Object
 	ButtonMenuNormalText: "#333333"
 	ButtonNormalColor: "#333333"
 
+        TextScreenBodyBackgroundColor: "#000000"
+	TextScreenBodyText: "#ffffff"
+	TextScreenScrollThumbColor: "#ffffff"
+	TextScreenScrollBarColor: "#bbbbbb"
+
         ParagraphHeaderText: "#ffffff"
         ParagraphBodyText: "#dfdfdf"
 
@@ -473,9 +481,9 @@ Function vcGetStockTheme() as Object
         PosterScreenLine2Text: "#bbbbbb"
         EpisodeSynopsisText: "#dfdfdf"
 
-        ListItemText: "#dfdfdf"
-        ListItemHighlightText: "#ffffff"
-        ListScreenDescriptionText: "#9a9a9a"
+        'ListItemText: "#dfdfdf"
+        'ListItemHighlightText: "#ffffff"
+        'ListScreenDescriptionText: "#9a9a9a"
         ListScreenTitleColor: "#ffffff"
         ListScreenHeaderText: "#ffffff"
 
@@ -488,10 +496,10 @@ Function vcGetStockTheme() as Object
         FilterBannerSideColor: "#cccccc"
 
         GridScreenBackgroundColor: "#181818"
-        GridScreenListNameColor: "#ffffff"
-        GridScreenDescriptionTitleColor: "#ffffff"
+        'GridScreenListNameColor: "#ffffff"
+        'GridScreenDescriptionTitleColor: "#ffffff"
         'GridScreenDescriptionDateColor: "#ffffff"
-        GridScreenDescriptionSynopsisColor: "#ffffff"
+        'GridScreenDescriptionSynopsisColor: "#ffffff"
         'GridScreenDescriptionRuntimeColor: "#ffffff"
 
         SpringboardActorColor: "#9a9a9a"
@@ -608,7 +616,7 @@ Sub vcShow()
 
 	m.loadUserTheme()
 	
-	ConnectionManager().setAppInfo("Roku", getGlobalVar("channelVersion", "Unknown"))
+	ConnectionManager().setAppInfo("Roku BN", getGlobalVar("channelVersion", "Unknown"))
 	
 	m.ShowInitialScreen()
 
@@ -730,7 +738,7 @@ Sub vcShow()
 
     	dialog = CreateObject("roMessageDialog")
     	dialog.SetTitle("GoodBye " + username + "!")
-	dialog.SetText("                Emby will be here waiting for you to return."+chr(10)+"                        ^_^   Thanks for using Emby!   ^_^" + chr(10) + "                I always knew you were super cool like that." + chr(10) + chr(10) + "                                        Special Thanks:" + chr(10) + "          @shaefurr for his help cleaning up the graphics!!!" + chr(10) + "         @waldoniss for his help with audio and subtitles!!!")
+	dialog.SetText("                Emby will be here waiting for you to return."+chr(10)+"                        ^_^   Thanks for using Emby!   ^_^" + chr(10) + "                I always knew you were super cool like that." + chr(10) + chr(10) + "                                        Special Thanks:" + chr(10) + "          @shaefurr for his help cleaning up the graphics!!!" + chr(10) + "         @waldonnis for his help with audio and subtitles!!!" + chr(10) + "       @Grace1313 you are such a little suck up cheerleader!!" + chr(10) + "          @CBers and @Happy2Play for their endless help!!!")
     	dialog.Show()
 	sleep(3500)
 	dialog.Close()
@@ -775,6 +783,7 @@ Sub InitWebServer(vc)
 	ClassReply().AddHandler("/emby/message/GoToSettings", ProcessNavigationSettings)
 	ClassReply().AddHandler("/emby/message/GoToSearch", ProcessNavigationSearch)
 	ClassReply().AddHandler("/emby/message/SendString", ProcessApplicationSetText)
+	ClassReply().AddHandler("/emby/message/DisplayMessage", ProcessApplicationDisplayText)
 	ClassReply().AddHandler("/emby/message/ShowNowPlaying", ProcessApplicationSetText)
 	ClassReply().AddHandler("/emby/message/Ping", ProcessPingRequest)
 	ClassReply().AddHandler("/emby/message/ServerRestarting", ProcessPingRequest)
@@ -782,6 +791,7 @@ Sub InitWebServer(vc)
 	ClassReply().AddHandler("/emby/message/RestartRequired", ProcessPingRequest)
 	ClassReply().AddHandler("/emby/message/Stop", ProcessPlaybackStop)
 	ClassReply().AddHandler("/emby/message/Pause", ProcessPlaybackPause)
+	ClassReply().AddHandler("/emby/message/PlayPause", ProcessPlaybackPlayPause)
 	ClassReply().AddHandler("/emby/message/Unpause", ProcessPlaybackPlay)
 	ClassReply().AddHandler("/emby/message/NextTrack", ProcessPlaybackSkipNext)
 	ClassReply().AddHandler("/emby/message/PreviousTrack", ProcessPlaybackSkipPrevious)
@@ -946,7 +956,7 @@ Function ProcessPlaybackPlayMedia() As Boolean
 	
 	Debug("Passing PlayStart to VideoPlayer: " + tostr(playOptions.PlayStart))
 	
-    GetViewController().CreatePlayerForItem(context, 0, playOptions)
+    GetViewController().CreatePlayerForItem(context, 0, playOptions, true)
 
     m.simpleOK("")
     return true
@@ -1085,6 +1095,37 @@ Function ProcessPlaybackPause() As Boolean
     return true
 End Function
 
+Function ProcessPlaybackPlayPause() As Boolean
+
+	if AudioPlayer().IsPlaying then
+		AudioPlayer().Pause()
+	else if AudioPlayer().IsPaused then
+		AudioPlayer().Resume()
+	else
+		player = VideoPlayer()
+		if player <> invalid
+			if player.playState = "paused"
+				player.resume()
+			else
+				player.Pause()
+			end if
+		else
+			player = PhotoPlayer()
+			if player <> invalid
+				if player.isPaused
+					player.Play()
+				else
+					player.Pause()
+				end if
+			end if
+		end if
+	end if
+
+	m.simpleOK("")
+	return true
+
+End Function
+
 Function ProcessPlaybackPlay() As Boolean
 
     ' Try to deal with the command directly, falling back to ECP.
@@ -1209,16 +1250,21 @@ Function ProcessApplicationSetText() As Boolean
         NowPlayingManager().textFieldContent = value
         screen.SetText(value, true)
     else
-	print "--->"
-	printany(3,"",m.request)
-	print "<---"
 	value = firstOf(m.request.query["String"], "")
-        createDialog("Message from the server", strReplace(tostr(value),"+"," "), "OK", true)
+        createDialog("Message from the server", strReplace(tostr(value),"+"," "), "Got It", true)
     end if
 
     m.simpleOK("")
     return true
 	
+End Function
+
+Function ProcessApplicationDisplayText() As Boolean
+	header = firstOf(m.request.query["Header"], "")
+	text = firstOf(m.request.query["Text"], "")
+        createDialog(strReplace(tostr(header),"+"," "), strReplace(tostr(text),"+"," "), "Got It", true)
+	m.simpleOK("")
+	return true
 End Function
 
 Function ProcessNavigationMusic() As Boolean
@@ -1403,7 +1449,7 @@ End Function
 Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As Dynamic
 
 	' cleanup unused screens to speed up responses
-	'RunGarbageCollector()
+	RunGarbageCollector()
 
 	Debug("Entered CreateScreenForItem")
 
@@ -1413,13 +1459,14 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
         item = context
     end if
     item.indexnumber = 1
-
     contentType = item.ContentType
     itemId = item.Id
-    viewGroup = item.viewGroup
-    if viewGroup = invalid then viewGroup = ""
-	debug("viewgroup "+tostr(viewGroup))
+    debug("::CreateScreenForItem:: Type "+FirstOf(contentType,"Invalid"))
     screen = invalid
+
+	' SPEED UP SHIT!!
+	'RunGarbageCollector()
+
 
     ' NOTE: We don't support switching between them as a preference, but
     ' the poster screen can be used anywhere the grid is used below. By
@@ -1453,6 +1500,27 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
 		GetGlobalAA().AddReplace("peepsnames", invalid)
         	m.Logout()
 
+	else if contentType = "UserLogout" then
+		peepsnames = GetAlsoWatching()
+		if peepsnames <> ""
+			sessionId = GetSessionId()
+			if sessionId <> invalid
+				r = CreateObject("roRegex", ",", "")
+				for each id in r.split(peepsnames)
+					result = postAlsoWatchingStatus(id, false, sessionId)
+				end for
+			end if
+		end if
+		GetGlobalAA().AddReplace("peepsnames", invalid)
+		'serverId = RegRead("currentServerId")
+		'ConnectionManager().DeleteServerData(serverId, "UserId")
+		base = GetServerBaseUrl()
+		reg = CreateObject("roRegex", "/emby", "")
+		baseurl = reg.ReplaceAll(base,"")
+		screen = CreateLoginScreen(m, baseurl, 0)
+		ScreenName = "Login"
+		breadcrumbs = ["", "Please Sign In"]
+
     else if contentType = "ChangeServer" then
 		peepsnames = GetAlsoWatching()
 		if peepsnames <> ""
@@ -1469,8 +1537,10 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
 		ScreenName = "Server List"
 
     else if contentType = "AlsoWatching" then
-
-		screen = CreateLoginScreen(m, GetServerBaseUrl(), 1)
+		base = GetServerBaseUrl()
+		reg = CreateObject("roRegex", "/emby", "")
+		baseurl = reg.ReplaceAll(base,"")
+		screen = CreateLoginScreen(m, baseurl, 1)
 		ScreenName = "Also Watching"
 
     else if contentType = "Welcome" then
@@ -1478,10 +1548,53 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
         	screen = createServerFirstRunSetupScreen(m)
         	screenName = "Welcome"
 
+	else if contentType = "DeviceInfo" then
+		screen = createDevicenfoScreen(m)
+        	screenName = "DebugInfo"
+
+	else if contentType = "DebugLogs" then
+		screen = createDebugLogScreen(m)
+        	screenName = "DebugLogs"
+
 	else if contentType = "ConnectSignIn" then
 
         	screen = createConnectSignInScreen(m)
         	screenName = "ConnectSignIn"
+
+	else if contentType = "ViewFavorites" then
+		screen = createFavConLibraryScreen(m, "0", "1")
+        	screenName = "Favorites"
+		breadcrumbs = ["View All","Favorites"]
+
+	else if contentType = "ContinueWatching" then
+		screen = createFavConLibraryScreen(m, "0", "0")
+        	screenName = "Continue Playing"
+		breadcrumbs = ["View All","Continue Playing"]
+
+	else if contentType = "ViewLatest" then
+		screen = createFavConLibraryScreen(m, "0", "2")
+        	screenName = "Latest"
+		breadcrumbs = ["View 100","Latest Added"]
+
+	else if contentType = "ViewNewest" then
+		screen = createFavConLibraryScreen(m, "0", "6")
+        	screenName = "Newest"
+		breadcrumbs = ["View 100","Latest Premieres"]
+
+	else if contentType = "ViewRandom" then
+		screen = createFavConLibraryScreen(m, "0", "3")
+        	screenName = "Random"
+		breadcrumbs = ["View 100","Random"]
+
+	else if contentType = "ViewRecent" then
+		screen = createFavConLibraryScreen(m, "0", "4")
+        	screenName = "Recently Watched"
+		breadcrumbs = ["View 100","Recently Played"]
+
+	else if contentType = "ViewFrequent" then
+		screen = createFavConLibraryScreen(m, "0", "5")
+        	screenName = "Frequently Played"
+		breadcrumbs = ["View 100","Frequently Played"]
 
 	else if contentType = "TVLibrary" then
 		screen = createTvLibraryScreen(m, itemId)
@@ -1490,6 +1603,10 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
     else if contentType = "MovieLibrary" then
 		screen = createMovieLibraryScreen(m, itemId)
         	screenName = "MovieLibrary"
+
+    else if contentType = "HomeMovieLibrary" then
+		screen = createHomeMovieLibraryScreen(m, itemId)
+        	screenName = "HomeMovieLibrary"
 
     else if contentType = "LocalTrailers" then
 		m.TrailerOverview = item.description
@@ -1502,7 +1619,7 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
 		screenName = "VideoSpringboardScreen" + itemId
 
     else if contentType = "MovieGenre" then
-		screen = createMovieGenreScreen(m, item.Title)
+		screen = createMovieGenreScreen(m, item.Title, item.ParentId)
 		screenName = "MovieGenre " + item.Title
 
     else if contentType = "MovieAlphabet" then
@@ -1510,31 +1627,43 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
         	screenName = "MovieAlphabet " + itemId
 
     else if contentType = "TvGenre" then
-		screen = createTvGenreScreen(m, item.Title)
+		screen = createTvGenreScreen(m, item.Title, item.ParentId)
 		screenName = "TvGenre " + item.Title
 
     else if contentType = "TvStudio" then
-		screen = createTvStudioScreen(m, item.Title)
+		screen = createTvStudioScreen(m, item.Title, item.ParentId)
 		screenName = "TvStudio " + item.Title
 
     else if contentType = "MovieStudio" then
-		screen = createMovieStudioScreen(m, item.Title)
+		screen = createMovieStudioScreen(m, item.Title, item.ParentId)
 		screenName = "MovieStudio " + item.Title
 
     else if contentType = "TvAlphabet" then
 		screen = createTvAlphabetScreen(m, itemId, item.ParentId)
         	screenName = "TvAlphabet " + itemId
 
+    else if contentType = "HomeVideoAlphabet" then
+		screen = createHomeVideoAlphabetScreen(m, itemId, item.ParentId)
+        	screenName = "HomeVideoAlphabet " + itemId
+
+    else if contentType = "FolderAlphabet" then
+		screen = createFolderAlphabetScreen(m, itemId, item.ParentId)
+        	screenName = "FolderAlphabet " + itemId
+
+    else if contentType = "PhotoAlphabet" then
+		screen = createPhotoAlphabetScreen(m, itemId, item.ParentId)
+        	screenName = "PhotoAlphabet " + itemId
+
     else if contentType = "Series" then
 		screen = createTvSeasonsScreen(m, item)
         	screenName = "Series " + itemId
 
     else if contentType = "SeriesStudios" then
-		screen = createTvStudioScreen(m, item.Studio)
+		screen = createTvStudioScreen(m, item.Studio, item.ParentId)
         	screenName = "Networks " + itemId
 
     else if contentType = "MoviesStudios" then
-		screen = createMovieStudioScreen(m, item.Studio)
+		screen = createMovieStudioScreen(m, item.Studio, item.ParentId)
         	screenName = "Studios " + itemId
 
     else if contentType = "LiveTVChannels" then
@@ -1596,6 +1725,31 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
 		screen = createMusicSongsScreen(m, item, contextIndex)
         	screenName = "Playlist " + itemId
 
+    else if contentType = "Audio" and item.MediaType = "Audio" then
+    		if type(context) = "roArray" then
+			title = item.Title
+			artist = item.Artist
+			c = []
+			for each item in context
+				if item.contentType = "Audio" and item.MediaType = "Audio" then
+					c.push(item)
+				end if
+			end for
+			count = 0
+			for each item in c
+				if item.artist = artist and item.title = title
+					ci = count
+				end if
+				count = count + 1
+			end for
+			screen = createAudioSearchScreen(m, c, ci)
+		else
+			screen = createAudioSpringboardScreen([context], 0, m)
+			if screen = invalid then return invalid
+		end if
+        	screenName = "Tracks"
+		breadcrumbs = ["Tracks"]
+
     else if contentType = "MusicFavorite" then
 		screen = createMusicSongsScreen(m, item, contextIndex)
         	screenName = "Favorite Tracks"
@@ -1614,7 +1768,99 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
     else if contentType = "AudioSearch" then
 		screen = createAudioSearchScreen(m, context, contextIndex)
         	screenName = "Search Tracks"
-		breadcrumbs = ["Search Tracks"]
+		breadcrumbs = ["Tracks"]
+
+    else if contentType <> invalid and left(contentType,12) = "AudioPodcast"
+		screen = createAudioSearchScreen(m, context, contextIndex)
+		if right(contentType,5) = "Search"
+        		screenName = "SearchPodcasts"
+			breadcrumbs = ["Search Podcasts"]
+		else
+        		screenName = "Podcasts"
+			breadcrumbs = ["Podcasts"]
+		end if
+
+    else if contentType = "emby" then
+		if AppExists(QueryApps(), "44191")
+			Debug ("Sending message to roku to launch emby official app.")
+			LaunchApp("44191")
+		else
+			Debug ("Sending message to roku to install emby official app.")
+			InstallApp("44191")
+		end if
+
+    else if contentType = "embybeta" then
+		if AppExists(QueryApps(), "43157")
+			Debug ("Sending message to roku to launch emby beta app.")
+			LaunchApp("43157")
+		else
+			Debug ("Sending message to roku to install emby beta app.")
+			InstallApp("43157")
+		end if
+
+    else if contentType = "netflix" then
+		Debug ("Sending message to roku to launch netflix.")
+		LaunchApp("12")
+
+    else if contentType = "amazoninstant" then
+		Debug ("Sending message to roku to launch amazon instant video.")
+		LaunchApp("13")
+
+    else if contentType = "hulu" then
+		Debug ("Sending message to roku to launch hulu.")
+		LaunchApp("2285")
+
+    else if contentType = "youtube" then
+		Debug ("Sending message to roku to launch youtube.")
+		LaunchApp("837")
+
+    else if contentType = "googleplay" then
+		Debug ("Sending message to roku to launch google play movies.")
+		LaunchApp("50025")
+
+    else if contentType = "xtv" then
+		Debug ("Sending message to roku to launch xtv iptv.")
+		LaunchApp("81444")
+
+    else if contentType = "slingtv" then
+		Debug ("Sending message to roku to launch slingtv.")
+		LaunchApp("46041")
+
+    else if contentType = "hbonow" then
+		Debug ("Sending message to roku to launch hbo now.")
+		LaunchApp("61322")
+
+    else if contentType = "showtime" then
+		Debug ("Sending message to roku to launch showtime.")
+		LaunchApp("8838")
+
+    else if contentType = "vudu" then
+		Debug ("Sending message to roku to vudu.")
+		LaunchApp("13842")
+
+    else if contentType = "pbs" then
+		Debug ("Sending message to roku to launch pbs.")
+		LaunchApp("23353")
+
+    else if contentType = "acorntv" then
+		Debug ("Sending message to roku to launch acorn tv.")
+		LaunchApp("14295")
+
+    else if contentType = "plutotv" then
+		Debug ("Sending message to roku to launch pluto tv.")
+		LaunchApp("74519")
+
+    else if contentType = "pandora" then
+		Debug ("Sending message to roku to launch pandora.")
+		LaunchApp("28")
+
+    else if contentType = "tunein" then
+		Debug ("Sending message to roku to launch tunein radio.")
+		LaunchApp("1453")
+
+    else if contentType = "tvtuner" then
+		Debug ("Sending message to roku to launch RokuTV Tuner.")
+		LaunchApp("tvinput.dtv")
 		
     else if contentType = "MusicAlbumAlphabet" then
 		screen = createMusicAlbumsAlphabetScreen(m, itemId, item.ParentId)
@@ -1676,7 +1922,7 @@ Function vcCreateScreenForItem(context, contextIndex, breadcrumbs, show=true) As
 		screenName = "Settings"
 
     else
-		Debug ("Encountered unknown type in CreateScreenForItem")
+		Debug ("Encountered unknown type ("+FirstOf(contentType,"Invalid")+") in CreateScreenForItem")
     end if
 
     if screen <> invalid then
@@ -1760,7 +2006,7 @@ Function vcCreatePhotoPlayer(context, contextIndex=invalid, show=true, shuffled=
     return screen
 End Function
 
-Function vcCreateVideoPlayer(context, contextIndex, playOptions, show=true)
+Function vcCreateVideoPlayer(context, contextIndex, playOptions, remote, show=true)
     
 	' Stop any background audio first since video will now play
 	player = AudioPlayer()
@@ -1769,8 +2015,13 @@ Function vcCreateVideoPlayer(context, contextIndex, playOptions, show=true)
 		player.Isplaying = false
 		player.Ispaused = false
 	end if
-
-	screen = createVideoPlayerScreen(context, contextIndex, playOptions, m)
+	' stop any video before playing another video over it (fixes remote-control issue)
+    	if NowPlayingManager().location <> invalid 
+		if NowPlayingManager().location = "fullScreenVideo"
+			m.PopScreen(m.screens[m.screens.Count() - 1])
+		end if
+    	end if
+	screen = createVideoPlayerScreen(context, contextIndex, playOptions, m, remote)
 	screen.ScreenName = "Video Player"
 
 	m.AddBreadcrumbs(screen, invalid)
@@ -1792,7 +2043,7 @@ Function GetContextForPlayback(context, contextIndex) as Object
 	item = context[contextIndex]
 	
 	itemType = firstOf(item.ContentType, item.Type)
-	Debug ("GetContextForPlayback item.ContentType=" + itemType)
+	Debug ("GetContextForPlayback " + itemType)
 	
     if itemType = "MusicArtist" then
 	
@@ -1812,23 +2063,26 @@ Function GetContextForPlayback(context, contextIndex) as Object
 			obj.contextIndex = 0
 		end if
 		
-    else if itemType = "MusicAlbum" then
+    'else if itemType = "MusicAlbum" then
+			'obj.context = musicGetSongsForItem(item)
+			'obj.context = MusicMetadata.GetAlbumSongs(item.id)
+			'obj.contextIndex = 0
 	
 		' URL
-		url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&ParentId=" + HttpEncode(item.Id) + "&ImageTypeLimit=1"
+		'url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&ParentId=" + HttpEncode(item.Id) + "&ImageTypeLimit=1"
 
 		' Prepare Request
-		request = HttpRequest(url)
-		request.ContentType("json")
-		request.AddAuthorization()
+		'request = HttpRequest(url)
+		'request.ContentType("json")
+		'request.AddAuthorization()
 
 		' Execute Request
-		response = request.GetToStringWithTimeout(10)
-		if response <> invalid
+		'response = request.GetToStringWithTimeout(10)
+		'if response <> invalid
 
-			obj.context= parseItemsResponse(response, 0, "two-row-flat-landscape-custom").Items
-			obj.contextIndex = 0
-		end if
+			'obj.context= parseItemsResponse(response, 0, "two-row-flat-landscape-custom").Items
+			'obj.contextIndex = 0
+		'end if
 		
     else if itemType = "PhotoAlbum" then
 	
@@ -1869,7 +2123,7 @@ Function GetContextForPlayback(context, contextIndex) as Object
     else if itemType = "MusicGenre" then
 	
 		' URL
-		url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&Genres=" + HttpEncode(item.Name)
+		url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?IncludeItemTypes=Audio&Recursive=true&SortBy=SortName&Genres=" + HttpEncode(item.Title)
 
 		' Prepare Request
 		request = HttpRequest(url)
@@ -1889,20 +2143,103 @@ Function GetContextForPlayback(context, contextIndex) as Object
 	
 End Function
 
-Function vcCreatePlayerForItem(context, contextIndex, playOptions)
+Function ShouldWeShuffle(count, series,item,index) As Integer
+	port = CreateObject("roMessagePort")
+	dialog = CreateObject("roMessageDialog")
+	dialog.SetMessagePort(port)
+	dialog.SetTitle("Continuous Play")
+	cin = FirstOf(RegRead("prefcustominorder"),"3").toInt()
+	text = "How do you want these "+Pluralize(count, "item")+" Played?"+chr(10)
+	if series = "yes"
+		if item.SeriesName.len() > 40
+			SeriesName = left(item.SeriesName,40)+"..."
+		else
+			SeriesName = item.SeriesName
+		end if
+		text = text + +"Selected: "+itostr(index+1)+" - "+SeriesName+chr(10)
+		epi = ""
+        	'if item.ParentIndexNumber <> invalid
+		'	epi = epi + "Season "+ itostr(item.ParentIndexNumber)
+		'end if
+		'if item.IndexNumber <> invalid
+		'	if epi <> "" then epi = epi + " / "
+		'	epi = epi + "Episode " + itostr(item.IndexNumber)
+		'
+		'	' Add Double Episode Number
+		'	if item.IndexNumberEnd <> invalid
+		'		epi = epi + "-" + itostr(item.IndexNumberEnd)
+		'	end if
+        	'end if
+		'if epi <> "" then text = text + epi + chr(10)
+	else
+		text = text + "Selected: "+itostr(index+1)+chr(10)
+	end if
+	if item.title.len() > 50
+		title = left(item.title,50) + "..."
+	else
+		title = item.title
+	end if
+	text = text + title
+	dialog.SetText(text)
+	dialog.AddButton(5, "Play Selected")
+	dialog.AddButton(1, "In Order from "+itostr(index+1)+" to "+itostr(count))
+	plus2 = index + cin
+	if plus2 < count
+		dialog.AddButton(7, "Custom In-Order from "+itostr(index+1)+" to "+itostr(plus2))
+	end if
+	if series = "yes"
+		dialog.AddButton(6, "Play Entire Series from Selected Episode")
+	end if
+	dialog.AddButton(2, "Shuffle All "+itostr(count))
+	if series = "yes" then dialog.AddButton(3, "Shuffle Entire Selected Series")
+	dialog.AddButton(4, "Cancel")
+	dialog.EnableBackButton(false)
+	dialog.Show()
+	reply = 1
+	While True
+		dlgMsg = wait(0, dialog.GetMessagePort())
+		If type(dlgMsg) = "roMessageDialogEvent"
+			if dlgMsg.isButtonPressed()
+				reply = dlgMsg.GetIndex()
+				exit while
+			end if
+		end if
+	end while
+	dialog.close()
+	return reply
+End Function
+
+Function vcCreatePlayerForItem(context, contextIndex, playOptions, remote = false)
 
 	obj = GetContextForPlayback(context, contextIndex)
 	context = obj.context
 	contextIndex = obj.contextIndex
-	
 	item = context[contextIndex]
 
 	if item.MediaType = "Photo"
 		return m.CreatePhotoPlayer(context, contextIndex)
 	else if item.MediaType = "Audio"
         	screen = m.CreateScreenForItem(context, contextIndex, invalid)
-		if item.contentType <> "MusicFavorite" and item.contentType <> "AudioSearch"
+		if item.contentType <> "MusicFavorite" and item.contentType <> "AudioSearch" and item.contentType <> "Audio"
 			if contextIndex <> invalid and contextIndex <> 0 then contextIndex = ContextIndex - 2
+		end if
+    		if type(context) = "roArray" then
+			title = item.Title
+			artist = item.Artist
+			c = []
+			for each item in context
+				if item.contentType = "Audio" and item.MediaType = "Audio" then
+					c.push(item)
+				end if
+			end for
+			count = 0
+			for each item in c
+				if item.artist = artist and item.title = title
+					ci = count
+					contextIndex = ci
+				end if
+				count = count + 1
+			end for
 		end if
 		if screen <> invalid and screen.playFromIndex <> invalid
 			if AudioPlayer().isPlaying then AudioPlayer().Stop() 
@@ -1910,8 +2247,117 @@ Function vcCreatePlayerForItem(context, contextIndex, playOptions)
 			screen.SetFocusedItem(contextIndex)
 			return screen
 		end if
+	else if item.MediaType = "MusicAlbum" then
+        	'screen = createMusicListScreen(m,Context)
+		'if screen <> invalid
+			'if AudioPlayer().isPlaying then AudioPlayer().Stop() 
+			'screen.playFromIndex(0)
+			'screen.SetFocusedItem(0)
+			'return screen
+		'end if
     	else if item.MediaType = "Video"
-		return m.CreateVideoPlayer(context, contextIndex, playOptions)
+		
+		if context.count() > 1 and remote = false and firstOf(RegRead("prefContPlay"), "yes") = "yes"
+			seriesId = item.SeriesId
+			if SeriesId <> "" and SeriesId <> invalid
+				series = "yes"
+			else
+				series = "no"
+			end if
+			shuf = false
+			result = ShouldWeShuffle(context.count(),series,item,contextIndex)
+			if result = 2
+				shuf = true
+   				loadingDialog = CreateObject("roOneLineDialog")
+    				loadingDialog.SetTitle("Shuffling "+tostr(context.count())+ " Videos")
+    				loadingDialog.ShowBusyAnimation()
+    				loadingDialog.Show()
+				contextIndex2 = Rnd(context.count())-1
+				contextIndex = ShuffleArray(context, contextIndex2)
+    				loadingDialog.close()
+			else if result = 3
+				shuf = true
+   				loadingDialog = CreateObject("roOneLineDialog")
+    				loadingDialog.SetTitle("Getting all episodes of "+item.seriesName)
+    				loadingDialog.ShowBusyAnimation()
+    				loadingDialog.Show()
+				response = getAllEpisodes(seriesId)
+				if response <> invalid
+					context = parseItemsResponse(response, 0, "two-row-flat-landscape-custom").Items
+					contextIndex2 = Rnd(context.count())-1
+					contextIndex = ShuffleArray(context,contextIndex2)
+    					loadingDialog.close()
+				else
+					result = 4
+				end if
+			else if result = 7
+				cin = FirstOf(RegRead("prefcustominorder"),"3").toInt()
+				c = context : context = []
+				for x = 0 to cin-1
+					context.push(c[contextIndex+x])
+				end for
+				contextIndex = 0
+			else if result = 5
+				shuf = false
+				playOptions = {
+					PlayStart: context[0].BookmarkPosition
+				}
+				context = [context[contextIndex]]
+				contextIndex = 0
+			else if result = 6
+				shuf = false
+   				loadingDialog = CreateObject("roOneLineDialog")
+    				loadingDialog.SetTitle("Getting all episodes of "+item.seriesName)
+    				loadingDialog.ShowBusyAnimation()
+    				loadingDialog.Show()
+				response = getAllEpisodes(seriesId)
+				list = parseItemsResponse(response, 0, "two-row-flat-landscape-custom").Items
+				contextIndex = 0
+				context = []
+				smatch = 0
+				ematch = 0
+				for each i in list
+					if smatch = 0
+						if item.ParentIndexNumber <> invalid
+							if item.ParentIndexNumber = i.ParentIndexNumber then smatch = 1
+						else
+							if NOT i.ParentIndexNumber <> invalid then smatch = 1
+						end if
+					end if
+					if smatch = 1
+						if ematch = 0
+							if item.IndexNumber <> invalid
+								if item.IndexNumber = i.IndexNumber then ematch = 1
+							else
+								if NOT i.IndexNumber <> invalid then ematch = 1
+							end if
+						end if
+					end if
+					if ematch = 1 and smatch = 1
+						context.push(i)
+					end if
+				end for
+    				loadingDialog.close()
+			end if
+		else if left(firstOf(RegRead("prefContPlay"), "yes"), 2) = "no"
+			shuf = false
+			context = [context[contextIndex]]
+			if right(firstOf(RegRead("prefContPlay"), "yes"), 1) = "+"
+				playOptions = {
+					PlayStart: context[0].BookmarkPosition
+				}
+			end if
+			contextIndex = 0
+			result = 0
+		else
+			result = 0
+			shuf = false
+		end if
+		if result <> 4
+			reply = m.CreateVideoPlayer(context, contextIndex, playOptions, remote)
+			if shuf then UnshuffleArray(context,contextIndex2)
+			return reply
+		end if
     	else
         	Debug("Not sure how to play item of type " + tostr(item.ContentType))
         	return m.CreateScreenForItem(context, contextIndex, invalid)

@@ -12,8 +12,8 @@ Function createFilmographyScreen(viewController as Object, item as Object) As Ob
 
     imageType      = (firstOf(RegUserRead("filmImageType"), "0")).ToInt()
 
-	names = ["Movies", "Shows", "Episodes", "Trailers", "Music Videos", "Videos", "Favorite Movies", "Favorite Shows", "Favorite Episodes", "Favorite Trailers", "Favorite Music Videos", "Favorite Videos"]
-	keys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+	names = ["Movies", "Shows", "Episodes", "Trailers", "Favorite Movies", "Favorite Shows", "Favorite Episodes", "Favorite Trailers"]
+	keys = ["0", "1", "2", "3", "4", "5", "6", "7"]
 
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getFilmographyRowScreenUrl
@@ -31,7 +31,7 @@ Function createFilmographyScreen(viewController as Object, item as Object) As Ob
 
     screen.displayDescription = (firstOf(RegUserRead("filmDescription"), "1")).ToInt()
 
-	screen.createContextMenu = movieScreenCreateContextMenu
+	screen.createContextMenu = filmographyScreenCreateContextMenu
 
     return screen
 
@@ -92,26 +92,21 @@ Function getFilmographyRowScreenUrl(row as Integer, id as String) as String
 		query.AddReplace("SortOrder", "Descending")
 	end if
 
-	if row = 0 or row = 6
+	if row = 0 or row = 4
 		query.AddReplace("IncludeItemTypes", "Movie")
-	else if row = 1 or row = 7
+	else if row = 1 or row = 5
 		query.AddReplace("IncludeItemTypes", "Series")
-	else if row = 2 or row = 8
+	else if row = 2 or row = 6
 		query.AddReplace("IncludeItemTypes", "Episode")
-	else if row = 3 or row = 9
+	else if row = 3 or row = 7
 		query.AddReplace("IncludeItemTypes", "Trailer,ChannelVideoItem")
-	else if row = 4 or row = 10
-		query.AddReplace("IncludeItemTypes", "MusicVideo")
-	else if row = 5 or row = 11
-		query.AddReplace("IncludeItemTypes", "Video")
-		query.AddReplace("ExcludeItemTypes", "Movie,Series,Episode,MusicVideo")	
 	end if
 
-	if row > 5
+	if row > 3
 		query.AddReplace("Filters", "IsFavorite")
 	end if
 	
-	query.AddReplace("Fields", "Overview")
+	query.AddReplace("Fields", "Overview,ParentId")
 	query.AddReplace("PersonIds", m.personId)
 
 	for each key in query
@@ -137,8 +132,8 @@ Function filmographyScreenCreateContextMenu()
 	
 	options = {
 		settingsPrefix: "film"
-		sortOptions: ["Name", "Date Added", "Date Played", "Release Date"]
-		filterOptions: ["None", "Unplayed", "Played"]
+		sortOptions: ["Name", "Date Added", "Date Played", "Release Date", "Random", "Play Count", "Critic Rating", "Community Rating", "Budget", "Revenue"]
+		filterOptions: ["None", "Unplayed", "Played", "Resumable"]
 		showSortOrder: true
 	}
 	createContextMenuDialog(options)

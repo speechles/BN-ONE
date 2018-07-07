@@ -6,7 +6,7 @@ Function createTvLibraryScreen(viewController as Object, parentId as String) As 
 
     imageType      = (firstOf(RegUserRead("tvImageType"), "0")).ToInt()
 
-	names = ["Shows  ( Press * for Options )", "Jump In", "Next Up", "Favorite Shows", "Favorite Episodes", "Upcoming Episodes", "Genres", "Networks"]
+	names = ["Shows", "Jump In", "Next Up", "Favorite Shows", "Favorite Episodes", "Upcoming Episodes", "Genres", "Networks"]
 	keys = ["0", "1", "2", "3", "4", "5", "6", "7"]
 
 	loader = CreateObject("roAssociativeArray")
@@ -59,7 +59,7 @@ Function tvScreenCreateContextMenu()
 	
 	options = {
 		settingsPrefix: "tv"
-		sortOptions: ["Name", "Date Added", "Date Played", "Release Date", "Random", "Play Count", "Community Rating"]
+		sortOptions: ["Name", "Date Added", "Date Played", "Release Date", "Random", "Play Count", "Critic Rating", "Community Rating", "Budget", "Revenue"]
 		filterOptions: ["None", "Continuing Series", "Ended Series", "Played", "Unplayed", "Resumable"]
 
 		showSortOrder: true
@@ -127,7 +127,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 			query.AddReplace("SortOrder", "Descending")
 		end if
 
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("ParentId", m.parentId)
 		query.AddReplace("IncludeItemTypes", "Series")
 
@@ -138,7 +138,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		' Tv next up
 		url = url  + "/Shows/NextUp?recursive=true"
 		query.AddReplace("SortBy", "SortName")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("userid", getGlobalVar("user").Id)
 		query.AddReplace("ParentId", m.parentId)
 		'query.AddReplace("ImageTypeLimit", "1")
@@ -148,7 +148,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		query.AddReplace("filters", "IsFavorite")
 		query.AddReplace("sortby", "SortName")
 		query.AddReplace("sortorder", "Ascending")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("IncludeItemTypes", "Series")
 		query.AddReplace("ParentId", m.parentId)
 		'query.AddReplace("ImageTypeLimit", "1")
@@ -156,7 +156,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		' Tv Favorite Episodes
 		url = url + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?includeitemtypes=Episode"
 		query.AddReplace("recursive", "true")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("sortby", "SortName")
 		query.AddReplace("sortorder", "Ascending")
 		query.AddReplace("filters", "IsFavorite")
@@ -167,7 +167,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		url = url + "/Shows/Upcoming?recursive=true&limit=200"
 		'query.AddReplace("SortBy", "SortName")
 		'query.AddReplace("sortorder", "Ascending")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("userid", getGlobalVar("user").Id)
 		query.AddReplace("ParentId", m.parentId)
 		query.AddReplace("ImageTypeLimit", "1")
@@ -177,7 +177,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		'query.AddReplace("filters", "IsFavorite")
 		'query.AddReplace("sortby", "SortName")
 		'query.AddReplace("sortorder", "Ascending")
-		'query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		'query.AddReplace("fields", "PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		'query.AddReplace("parentId", m.parentId)
 		'query.AddReplace("IncludeItemTypes", "Series,Episode")
 		'query.AddReplace("UserId", getGlobalVar("user").Id)
@@ -188,7 +188,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		url = url  + "/Genres?recursive=true"
 		query.AddReplace("SortBy", "SortName")
 		query.AddReplace("sortorder", "Ascending")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "ItemCounts,PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("userid", getGlobalVar("user").Id)
 		query.AddReplace("IncludeItemTypes", "Series")
 		query.AddReplace("ParentId", m.parentId)
@@ -198,7 +198,7 @@ Function getTvLibraryRowScreenUrl(row as Integer, id as String) as String
 		url = url  + "/Studios?recursive=true"
 		query.AddReplace("SortBy", "SortName")
 		query.AddReplace("sortorder", "Ascending")
-		query.AddReplace("fields", "PrimaryImageAspectRatio,Overview")
+		query.AddReplace("fields", "ItemCounts,PrimaryImageAspectRatio,Overview,AirTime,ParentId")
 		query.AddReplace("userid", getGlobalVar("user").Id)
 		query.AddReplace("IncludeItemTypes", "Series")
 		query.AddReplace("ParentId", m.parentId)
@@ -231,7 +231,10 @@ Function parseTvLibraryScreenResult(row as Integer, id as string, startIndex as 
 		imageType = 1
 	end if
 
-    return parseItemsResponse(json, imageType, primaryImageStyle, mode)
+	response = parseItemsResponse(json, imageType, primaryImageStyle, mode)
+	if row > 5 then response.Items = AddParentID(response.Items, m.parentId)
+	return response
+		
 
 End Function
 
@@ -283,7 +286,7 @@ Function getTvSeasonUrl(row as Integer, seasonId as String) as String
 	userId = getGlobalVar("user").Id
 
 	url = url + "&userId=" + userId
-	url = url + "&fields=PrimaryImageAspectRatio,Overview"
+	url = url + "&fields=PrimaryImageAspectRatio,Overview,AirTime,ParentId"
 
 	return url
 
@@ -326,7 +329,8 @@ Function getTvSeasonsDataContainer(viewController as Object, item as Object) as 
 		obj.focusedIndexItem = nextEpisode.Episode
 		debug("FocusedIndex: " + tostr(index))
 		debug("FocusedIndexItem: " + tostr(nextEpisode.Episode))
-
+	else
+		debug("No Next Up")
 	end if
 
 	return obj
@@ -337,7 +341,7 @@ End Function
 ' createTvGenreScreen
 '******************************************************
 
-Function createTvGenreScreen(viewController as Object, genre As String) As Object
+Function createTvGenreScreen(viewController as Object, genre As String, parentId = invalid) As Object
 
     imageType      = (firstOf(RegUserRead("tvImageType"), "0")).ToInt()
 
@@ -347,6 +351,7 @@ Function createTvGenreScreen(viewController as Object, genre As String) As Objec
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getTvGenreScreenUrl
 	loader.parsePagedResult = parseTvGenreScreenResult
+	loader.parentId = parentId
 
     if imageType = 0 then
         screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
@@ -369,14 +374,14 @@ Function getTvGenreScreenUrl(row as Integer, id as String) as String
 
     ' Query
     query = {
-        fields: "Overview"
+        fields: "Overview,AirTime,ParentId"
         sortby: "SortName"
         sortorder: "Ascending",
 	genres: genre,
 	ImageTypeLimit: "1"
         IncludeItemTypes: "Series"
     }
-
+	if m.parentId <> invalid then query.parentId = m.parentId
     ' add favorites
     if row = 1 then query.AddReplace("filters", "IsFavorite")
 
@@ -400,7 +405,7 @@ End Function
 ' createTvStudiosScreen
 '******************************************************
 
-Function createTvStudioScreen(viewController as Object, studio As String) As Object
+Function createTvStudioScreen(viewController as Object, studio As String, parentId = invalid) As Object
 
     imageType      = (firstOf(RegUserRead("tvImageType"), "0")).ToInt()
 
@@ -410,6 +415,7 @@ Function createTvStudioScreen(viewController as Object, studio As String) As Obj
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getTvStudioScreenUrl
 	loader.parsePagedResult = parseTvStudioScreenResult
+	loader.parentId = parentId
 
     if imageType = 0 then
         screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
@@ -433,13 +439,13 @@ Function getTvStudioScreenUrl(row as Integer, id as String) as String
     ' Query
     query = {
         IncludeItemTypes: "Series"
-        fields: "Overview"
+        fields: "Overview,AirTime,ParentId"
         sortby: "SortName"
         sortorder: "Ascending",
 	studios: studio,
 	ImageTypeLimit: "1"
     }
-
+	if m.parentId <> invalid then query.parentId = m.parentId
     ' add favorites
     if row = 1 then query.AddReplace("filters", "IsFavorite")
 
@@ -496,7 +502,7 @@ Function getTvAlphabetScreenUrl(row as Integer, id as String) as String
     ' Query
     query = {
         IncludeItemTypes: "Series"
-        fields: "Overview"
+        fields: "PrimaryImageAspectRatio,Overview,AirTime,ParentId"
         sortby: "SortName"
         sortorder: "Ascending",
 		ImageTypeLimit: "1"

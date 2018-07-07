@@ -106,7 +106,7 @@ Sub ssOnTimerExpired(timer)
 			IncludePeople: "true"
 			IncludeStudios: "true"
 			IncludeGenres: "true"
-			IncludeItemTypes: "Movie,BoxSet,Series,Episode,Trailer,Channel,ChannelVideoItem,Video,AdultVideo,MusicVideo,Genre,MusicGenre,MusicArtist,MusicAlbum,Person,People,Studio,Audio"
+			IncludeItemTypes: "Movie,BoxSet,Series,Episode,Trailer,Channel,ChannelVideoItem,Video,AdultVideo,MusicVideo,Genre,MusicGenre,MusicArtist,MusicAlbum,Person,People,Studio,Audio,AudioPodcast,Folder,Photo,PhotoAlbum,LiveTvProgram,LiveTvChannel,LiveTvVideoRecording,LiveTvAudioRecording"
 		}
 
 		' Prepare Request
@@ -184,15 +184,15 @@ Function createSearchResultsScreen(viewController as Object, searchTerm As Strin
 
     imageType      = 0
 
-	names = ["Movies", "Shows", "Episodes", "People", "Trailers", "Videos", "Genres", "Artists", "Albums", "Tracks", "Studios"]
-	keys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+	names = ["Movies", "Shows", "Episodes", "People", "Trailers", "Videos", "Genres", "Artists", "Albums", "Tracks", "Studios", "Podcasts", "LiveTV", "Collection Folders", "Photos"]
+	keys = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
 
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getSearchResultRowUrl
 	loader.parsePagedResult = parseSearchResultScreenResult
 	loader.searchTerm = searchTerm
-
-	screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom", 50)
+	limit = FirstOf(regread("prefsearchmax"),"50").ToInt()
+	screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom", limit)
 	'screen.SetDescriptionVisible(true)
 	'screen.displayDescription = 1
 
@@ -218,7 +218,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Movie,BoxSet"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,ParentId"
 		}
 	else if row = 1
 		query = {
@@ -229,7 +229,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Series"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,AirTime,ParentId"
 		}
 	else if row = 2
 		query = {
@@ -240,7 +240,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Episode"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,AirTime,ParentId"
 		}
 	else if row = 3
 		query = {
@@ -251,7 +251,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "People,Person"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,ParentId"
 		}
 	else if row = 4
 		query = {
@@ -262,7 +262,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Trailer,ChannelVideoItem"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,ParentId"
 		}
 	else if row = 5
 		query = {
@@ -273,7 +273,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Video,AdultVideo,MusicVideo"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "PrimaryImageAspectRatio,Overview,ParentId"
 		}
 	else if row = 6
 		query = {
@@ -284,7 +284,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Genre,MusicGenre"
-			Fields: "PrimaryImageAspectRatio,AudioInfo,MediaSources,SyncInfo"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
 		}
 	else if row = 7
 		query = {
@@ -295,7 +295,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "true"
 			IncludeMedia: "true"
 			IncludeItemTypes: "MusicArtist"
-			Fields: "PrimaryImageAspectRatio,AudioInfo,MediaSources,SyncInfo"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
 		}
 	else if row = 8
 		query = {
@@ -306,7 +306,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "MusicAlbum"
-			Fields: "PrimaryImageAspectRatio,AudioInfo,MediaSources,SyncInfo"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
 		}
 	else if row = 9
 		query = {
@@ -317,7 +317,7 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Audio"
-			Fields: "PrimaryImageAspectRatio,AudioInfo,MediaSources,SyncInfo"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
 		}
 	else if row = 10
 		query = {
@@ -328,7 +328,51 @@ Function getSearchResultRowUrl(row as Integer, id as String) as String
 			IncludeArtists: "false"
 			IncludeMedia: "true"
 			IncludeItemTypes: "Studio"
-			Fields: "PrimaryImageAspectRatio"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
+		}
+	else if row = 11
+		query = {
+			SearchTerm: searchTerm
+			IncludePeople: "false"
+			IncludeStudios: "true"
+			IncludeGenres: "false"
+			IncludeArtists: "false"
+			IncludeMedia: "true"
+			IncludeItemTypes: "VideoPodcast,AudioPodCast,Podcast"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
+		}
+	else if row = 12
+		query = {
+			SearchTerm: searchTerm
+			IncludePeople: "true"
+			IncludeStudios: "true"
+			IncludeGenres: "true"
+			IncludeArtists: "true"
+			IncludeMedia: "true"
+			IncludeItemTypes: "LiveTvProgram,LiveTvChannel,LiveTvVideoRecording,LiveTvAudioRecording"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
+		}
+	else if row = 13
+		query = {
+			SearchTerm: searchTerm
+			IncludePeople: "true"
+			IncludeStudios: "true"
+			IncludeGenres: "true"
+			IncludeArtists: "true"
+			IncludeMedia: "true"
+			IncludeItemTypes: "CollectionFolder"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
+		}
+	else if row = 14
+		query = {
+			SearchTerm: searchTerm
+			IncludePeople: "true"
+			IncludeStudios: "true"
+			IncludeGenres: "true"
+			IncludeArtists: "true"
+			IncludeMedia: "true"
+			IncludeItemTypes: "PhotoAlbum,Photo"
+			Fields: "ItemCounts,PrimaryImageAspectRatio,Overview,AudioInfo,MediaSources,ParentId"
 		}
 	end If
 
@@ -347,13 +391,15 @@ Function parseSearchResultScreenResult(row as Integer, id as string, startIndex 
 	else
 		imageType = 0
 	end if
-	if row > 7 and row < 10
+	if (row > 7 and row < 10) or row = 11
 		primaryImageStyle = "mixed-aspect-ratio-square"
 	else
 		primaryImageStyle = "mixed-aspect-ratio-portrait"
 	end if
 	if row = 9
 		mode = "audiosearch"
+	else if row = 11
+		mode = "podcastsearch"
 	else
 		mode = ""
 	end if
@@ -402,7 +448,7 @@ Function getGenreRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Movie"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			genres: genre
@@ -413,7 +459,7 @@ Function getGenreRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Series"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			genres: genre
@@ -424,7 +470,7 @@ Function getGenreRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Trailer,ChannelVideoItem"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			genres: genre
@@ -434,8 +480,8 @@ Function getGenreRowScreenUrl(row as Integer, id as String) as String
 		url = url  + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?recursive=true"
 
 		query = {
-			IncludeItemTypes: "MusicAlbums"
-			fields: "Overview,PrimaryImageAspectRatio"
+			IncludeItemTypes: "MusicAlbum"
+			fields: "ItemCounts,Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			genres: genre
@@ -457,6 +503,7 @@ Function parseGenreScreenResult(row as Integer, id as string, startIndex as Inte
 	imageType      = 0
 	primaryImageStyle = "mixed-aspect-ratio-portrait"
 	mode = ""
+	if row = 3 or row = 7 then return parseItemsResponse(json, 0, "mixed-aspect-ratio-square")
 
     return parseItemsResponse(json, imageType, primaryImageStyle, mode)
 
@@ -502,7 +549,7 @@ Function getStudioRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Movie"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			studios: studio
@@ -513,7 +560,7 @@ Function getStudioRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Series"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			studios: studio
@@ -524,7 +571,7 @@ Function getStudioRowScreenUrl(row as Integer, id as String) as String
 
 		query = {
 			IncludeItemTypes: "Trailer,ChannelVideoItem"
-			fields: "Overview,PrimaryImageAspectRatio"
+			fields: "Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			studios: studio
@@ -534,8 +581,8 @@ Function getStudioRowScreenUrl(row as Integer, id as String) as String
 		url = url  + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items?recursive=true"
 
 		query = {
-			IncludeItemTypes: "MusicAlbums"
-			fields: "Overview,PrimaryImageAspectRatio"
+			IncludeItemTypes: "MusicAlbum"
+			fields: "ItemCounts,Overview,PrimaryImageAspectRatio,ParentId"
 			sortby: "SortName"
 			sortorder: "Ascending",
 			studios: studio
@@ -557,7 +604,7 @@ Function parseStudioScreenResult(row as Integer, id as string, startIndex as Int
 	imageType      = 0
 	primaryImageStyle = "mixed-aspect-ratio-portrait"
 	mode = ""
-
+	if row = 3 or row = 7 then return parseItemsResponse(json, 0, "mixed-aspect-ratio-square")
     return parseItemsResponse(json, imageType, primaryImageStyle, mode)
 
 End Function

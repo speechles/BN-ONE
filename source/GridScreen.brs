@@ -25,7 +25,7 @@ Function CreateGridScreen(viewController as Object, style As String) As Object
 		upBehavior = "stop"
         if style = "two-row-flat-landscape-custom" then
             screen.Screen.SetLoadingPoster(viewController.getThemeImageUrl("sd-loading-landscape.jpg"), viewController.getThemeImageUrl("hd-loading-landscape.jpg"))
-        else if style = "mixed-aspect-ratio" then
+        else if style = "mixed-aspect-ratio" or style = "flat-movie" then
             screen.Screen.SetLoadingPoster(viewController.getThemeImageUrl("sd-loading-poster.jpg"), viewController.getThemeImageUrl("hd-loading-poster.jpg"))
         end if
     end if
@@ -99,15 +99,12 @@ Function gridHandleMessage(msg) As Boolean
             
             index = msg.GetData()
 
-            item = context[index]
-
-            if item <> invalid then
-
+            if context <> invalid and index <> invalid and context[index] <> invalid then
+		item = context[index]
                 if item.ContentType = "Series" then
                     breadcrumbs = [item.Title]
                 else
-
-					breadcrumbs = [m.Loader.GetNames()[msg.GetIndex()], item.Title]
+		    breadcrumbs = [m.Loader.GetNames()[msg.GetIndex()], item.Title]
                 end if
 
                 m.Facade = CreateObject("roGridScreen")

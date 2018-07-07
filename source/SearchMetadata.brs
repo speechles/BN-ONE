@@ -19,19 +19,22 @@ Function parseSearchResultsResponse(response as String, row as integer, mode =""
         indexSelected    = 0
 
         for each i in jsonObj.SearchHints
-		
             metaData = {}
 
 	    metaData.ContentType = getContentType(i, mode)
-	
-	    'metaData.ContentType = i.Type
 	    metaData.MediaType = i.MediaType
 	    metaData.MediaSources = i.MediaSources
             metaData.Id = i.ItemId
             metaData.ShortDescriptionLine1 = firstOf(i.Name, "Unknown")
             metaData.Title = firstOf(i.Name, "Unknown")
+	    metaData.PrimaryImageAspectRatio = i.PrimaryImageAspectRatio
 
-            if i.Type = "Episode"
+	    description = getDescription(i, mode)
+	    metaData.FullDescription = description
+	    metaData.Description = description
+	    metaData.Overview = description
+
+	    if i.Type = "Episode"
 		metaData.ShortDescriptionLine1 =  firstOf(i.Series, "Unknown")
 		episodeInfo = ""
 
@@ -52,7 +55,7 @@ Function parseSearchResultsResponse(response as String, row as integer, mode =""
 		metaData.ShortDescriptionLine2 = episodeInfo
 				
 	    end if
-	    if row > 7 and row < 10
+	    if (row > 7 and row < 10) or row = 11
 		sizes = GetImageSizes("arced-square")
 	    else if row = 4
 		sizes = GetImageSizes("flat-portrait")
@@ -60,7 +63,7 @@ Function parseSearchResultsResponse(response as String, row as integer, mode =""
             	sizes = GetImageSizes("two-row-flat-landscape-custom")
 	    end if
 
-            if i.Type = "Studio" or i.Type = "Movie" or i.Type = "BoxSet" or i.Type = "Series"
+            if i.Type = "Studio" or i.Type = "MusicStudio" or i.Type = "Movie" or i.Type = "BoxSet" or i.Type = "Series" or i.type ="Folder"
 
 		if i.ThumbImageItemId <> "" And i.ThumbImageItemId <> invalid
                     imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.ThumbImageItemId) + "/Images/Thumb/0"
@@ -81,7 +84,7 @@ Function parseSearchResultsResponse(response as String, row as integer, mode =""
 
                 end if
 
-            else if i.Type = "Episode" or i.MediaType = "Video" or i.Type = "MusicAlbum" or i.MediaType = "Audio"
+            else if i.Type = "Episode" or i.MediaType = "Video" or i.Type = "MusicAlbum" or i.MediaType = "Audio" or i.type = "Photo" or i.type = "PhotoAlbum" or i.Type = "Genre" or i.Type = "MusicGenre"
 
                 if i.PrimaryImageTag <> "" And i.PrimaryImageTag <> invalid
                     imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.ItemId) + "/Images/Primary/0"
@@ -168,8 +171,8 @@ Function parseSearchResultsResponse(response as String, row as integer, mode =""
 
             contentList.push( metaData )
         end for
-
-		if totalRecordCount > 50 then totalRecordCount = 50
+		limit = FirstOf(regread("prefsearchmax"),"50").ToInt()
+		if totalRecordCount > limit then totalRecordCount = limit
 
         return {
             Items: contentList

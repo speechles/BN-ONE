@@ -103,6 +103,21 @@ Function http_content_type(contentType As String) As Void
     end if
 End Function
 
+Function CleanName(dname as String)
+        r = CreateObject("roRegex", ".", "")
+        chars = r.Split(dname)
+	name = ""
+	map = ["@","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","W","X","Y","Z","[","]","^","_"]
+	for each char in chars
+		if asc(char) > 127 or char < 32
+			char = chr(95)
+        	else if asc(char) = 34
+			char = chr(39)
+		end if
+		name = name + char
+	end for
+	return dname
+end Function
 
 '**********************************************************
 '** Add a Authorization Header
@@ -112,11 +127,11 @@ Function http_authorization() As Void
 
 	authString = "MediaBrowser"
 
-	authString = authString + " Client=" + Quote() + "Roku" + Quote()
+	authString = authString + " Client=" + Quote() + "Roku BN" + Quote()
+
 	dname = FirstOf(RegRead("prefDisplayName"),"")
-	if dname = ""
-		dname = firstOf(GetGlobalVar("rokuModelName"), "Unknown") + " (BlueNeon)"
-	end if
+	if dname = "" then dname = firstOf(GetGlobalVar("rokuModelName"), "Unknown")
+
 	authString = authString + ", Device=" + Quote() + dname + Quote()
 	authString = authString + ", DeviceId=" + Quote() + getGlobalVar("rokuUniqueId", "Unknown") + Quote()
 	authString = authString + ", Version=" + Quote() + HttpEncode(getGlobalVar("channelVersion", "Unknown")) + Quote()
@@ -124,6 +139,8 @@ Function http_authorization() As Void
     if getGlobalVar("user") <> invalid
         authString = authString + ", UserId=" + Quote() + HttpEncode(getGlobalVar("user").Id) + Quote()
     end if
+
+	authString = authString + ", AppIconUrl="+ Quote() +HttpEncode("http://ereader.kiczek.com/rokublue.png") + Quote()
 
     m.Http.AddHeader("X-Emby-Authorization", authString)
 	
@@ -259,7 +276,7 @@ End Function
 '**********************************************************
 
 Function http_get_to_string_with_retry() As Dynamic
-    timeout%         = 1500
+    timeout%         = 5000
     num_retries%     = 5
 
     str = invalid

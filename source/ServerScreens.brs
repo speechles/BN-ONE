@@ -185,6 +185,9 @@ Function serverListScreenHandleMessage(msg) As Boolean
 					facade.Show()
 
 					result = ConnectionManager().connectToServerInfo(server)
+
+					? server
+					? result
 					
 					facade.Close()
 					

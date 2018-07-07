@@ -75,6 +75,11 @@ Function handleLoginScreenMessage(msg) as Boolean
 
 		viewController.createScreenForItem(content, index, ["Connect"], true)
 
+            else if selectedProfile.ContentType = "Registry"
+
+		deleteReg ("")
+		showServerListScreen(viewController)
+
             else if selectedProfile.ContentType = "Left"
 
 		peepsids = GetAlsoWatching()
@@ -149,7 +154,7 @@ Sub onLoginScreenUserInput(value, screen)
 End Sub
 
 Sub OnPasswordEntered(serverUrl, usernameText, passwordText)
-	debug("m.Title = "+FirstOf(m.Title,"invalid"))
+	debug(serverurl + " " + usernameText + " " + passwordText)
 	Debug ("OnPasswordEntered")
 
 	' Check password
@@ -172,8 +177,7 @@ Sub OnPasswordEntered(serverUrl, usernameText, passwordText)
 				end if
 			end if
 			m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
-		else
-		
+		else		
 			ConnectionManager().SetServerData(authResult.ServerId, "AccessToken", authResult.AccessToken)
 			ConnectionManager().SetServerData(authResult.ServerId, "UserId", authResult.User.Id)
 		
@@ -241,6 +245,16 @@ Function getLoginScreenDataContainer(viewController as Object, item as Object) a
 			}
 			profiles.Push( connect )
 		end if
+
+		registry = {
+			Title: "Reset Registry"
+			ContentType: "Registry"
+			ShortDescriptionLine1: "Clear Registry"
+			ShortDescriptionLine2: "Wipe all settings"
+			HDPosterUrl: viewController.getThemeImageUrl("hd-trash.png"),
+			SDPosterUrl: viewController.getThemeImageUrl("hd-trash.png")
+		}
+    		profiles.Push( registry )
 	else
 		' Support also watching reset
 		gone = {

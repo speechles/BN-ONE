@@ -49,13 +49,18 @@ Function CreatePosterScreen(viewController as Object, item as Object, style As S
 	obj.Screen.SetDisplayMode("scale-to-fit")
 	obj.SeriesOptionsDialogUsed = true
 
-	obj.createContextMenu = posterScreenCreateContextMenu
+	'obj.createContextMenu = posterScreenCreateContextMenu
 	obj.SeriesOptionsDialog = posterSeriesOptionsDialog
-	
-    if NOT AudioPlayer().IsPlaying AND firstOf(RegRead("prefThemeMusic"), "yes") = "yes" then
-        AudioPlayer().PlayThemeMusic(item)
-        obj.Cleanup = baseStopAudioPlayer
-    end if
+	obj.Cleanup = baseStopAudioPlayer
+    	NoStop = FirstOf(RegRead("prefStopThemeMusic"),"0")
+	LastSeries = FirstOf(getGlobalVar("LastSeries"),"")
+	if NoStop = "0" OR AudioPlayer().IsPlaying = false
+		if firstOf(RegRead("prefThemeMusic"), "yes") = "yes" AND LastSeries <> obj.Item.Title
+			AudioPlayer().PlayThemeMusic(Item)
+		end if
+	end if
+	GetGlobalAA().AddReplace("LastSeries", Item.Title)
+	GetGlobalAA().AddReplace("AudioConflict", "1")
 
     Return obj
 	
@@ -187,8 +192,7 @@ Function showPosterScreen() As Integer
         next
 
         m.Loader.LoadMoreContent(0, 0)
-
-		m.Screen.SetFocusToFilterBanner(false)
+	m.Screen.SetFocusToFilterBanner(false)
     else
 
         ' We already grabbed the full list, no need to bother with loading
@@ -262,7 +266,27 @@ Sub posterShowContentList(index)
         createDialog("Display Error!", "No items to display. This category appears to be empty.. Sorry.", "OK", true)
     else
         m.Screen.Show()
-	m.Screen.SetFocusedListItem(status.focusedIndexItem)
+	place = status.focusedIndexItem
+	'debug("start at "+itostr(place))
+	'if place <> 0
+	'	count = 0
+	'	for each item in m.contentArray[index].content
+	'		if item.IndexNumberEnd <> invalid
+	'			if item.indexNumber >= status.focusedIndexItem
+	'				if item.IndexNumberEnd <= status.focusIndexItem
+	'					place = count
+	'				end if
+	'			end if
+	'		else if item.IndexNumber = status.focusIndexItem
+	'			place = count
+	'		end if
+	'		count = count + 1
+	'		? item.IndexNumber,item.IndexNumberEnd,count,place
+	'	end for
+	'end if
+	'debug("ended at "+itostr(place))
+	'printany(4,"",m.contentArray)
+	m.Screen.SetFocusedListItem(place)
     end if
 End Sub
 
@@ -273,7 +297,7 @@ End Sub
 '**********************************************************
 
 Sub posterSeriesOptionsDialog()
-    skip = FirstOf(GetGlobalVar("AudioConflict"),"0")
+    skip = FirstOf(GetGlobalVar("AudioConflict"),"1")
     if skip = "1" or NOT AudioPlayer().Context <> invalid
     	dlg = createBaseDialog()
     	dlg.Title = "Options"
@@ -290,7 +314,7 @@ Sub posterSeriesOptionsDialog()
 
 	dlg.HandleButton = handleSeriesOptionsButton
 
-	skip = FirstOf(GetGlobalVar("AudioConflict"),"0")
+	skip = FirstOf(GetGlobalVar("AudioConflict"),"1")
 	musicstop = FirstOf(GetGlobalVar("musicstop"),"0")
 
 	if AudioPlayer().Context <> invalid and musicstop = "0"
@@ -316,7 +340,7 @@ Sub posterSeriesOptionsDialog()
 	end if
 
     	if dlg.item.SeriesName <> invalid then
-    		dlg.SetButton("favorites", "Change Favorites")
+    		dlg.SetButton("favorites", "Change Favorites ...")
     	else
 		if dlg.item.IsFavorite <> invalid
 			data = GetFullItemMetadata(dlg.item, false, {})
@@ -338,7 +362,7 @@ Sub posterSeriesOptionsDialog()
 	status = GetFullItemMetadata(thespot, false, {})
 
 	if status.FullDescription <> invalid and status.FullDescription <> "" and status.FullDescription.len() > 50 then
-		dlg.SetButton("description", "See more of the Description")
+		dlg.SetButton("description", "Show Overview/Info")
 	end if
 
 	if dlg.item.SeriesName <> invalid then
@@ -367,7 +391,7 @@ Sub posterSeriesOptionsDialog()
 			dlg.SetButton("detail", "-> Go To " + tostr(series))
 		end if
 	end if
-	dlg.SetButton("goto", "-> Go To...")
+	dlg.SetButton("goto", "-> Go To ...")
 	dlg.SetButton("close", "Close this window")
 
 	dlg.Show()
@@ -496,7 +520,7 @@ Function handleSeriesOptionsButton(command, data) As Boolean
     else if command = "description" then
         newScreen = createTextDescriptionScreen(m.ViewController, item)
 	newScreen.ScreenName = "Text" + itemId
-        m.ViewController.InitializeOtherScreen(newScreen, ["","Description"])
+        m.ViewController.InitializeOtherScreen(newScreen, ["","Overview"])
 	newScreen.Show()
 	return true
     else if command = "maincast" then
@@ -513,21 +537,25 @@ Function handleSeriesOptionsButton(command, data) As Boolean
         return true
     else if command = "removefavorite" then
 	screen.refreshOnActivate = true
-	result = postFavoriteStatus(m.item.Id, false)
-	if result then
-		createDialog("Favorites Changed", m.item.Title + " has been removed from your favorites.", "OK", true)
-	else
-		createDialog("Favorites Error!", m.item.Title + " has NOT been removed from your favorites.", "OK", true)
+	if m.item.Id <> invalid
+		result = postFavoriteStatus(m.item.Id, false)
+		if result then
+			createDialog("Favorites Changed", m.item.Title + " has been removed from your favorites.", "OK", true)
+		else
+			createDialog("Favorites Error!", m.item.Title + " has NOT been removed from your favorites.", "OK", true)
+		end if
 	end if
 	m.refreshOnActivate = true
         return true
     else if command = "markfavorite" then
 	screen.refreshOnActivate = true
-	result = postFavoriteStatus(m.item.Id, true)
-	if result then
-		createDialog("Favorites Changed", m.item.Title + " has been added to your favorites.", "OK", true)
-	else
-		createDialog("Favorites Error!", m.item.Title + " has NOT been added to your favorites.", "OK", true)
+	if m.item.Id <> invalid
+		result = postFavoriteStatus(m.item.Id, true)
+		if result then
+			createDialog("Favorites Changed", m.item.Title + " has been added to your favorites.", "OK", true)
+		else
+			createDialog("Favorites Error!", m.item.Title + " has NOT been added to your favorites.", "OK", true)
+		end if
 	end if
         return true
     else if command = "removefavoriteseries" then

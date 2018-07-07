@@ -13,7 +13,7 @@ Function parseSuggestedMoviesResponse(response) As Object
 			return invalid
 		end if
 		' Only Grab 1 Category
-		category = result[0]
+		category = result[rnd(result.count())-1]
 		' Results are empty
 		if category = invalid then
 			return {
@@ -21,8 +21,10 @@ Function parseSuggestedMoviesResponse(response) As Object
 				TotalCount: contentList.Count()
 			}
 		end if
+		ImageType = FirstOf(RegUserRead("homeImageType"),"0").ToInt()
+
 		for each i in category.Items
-			metaData = getMetadataFromServerItem(i, 1, "mixed-aspect-ratio-portrait")
+			metaData = getMetadataFromServerItem(i, imageType, "mixed-aspect-ratio-portrait")
 			contentList.push( metaData )
 		end for
 		return {

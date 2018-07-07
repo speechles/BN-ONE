@@ -52,10 +52,10 @@ Function getMusicAlbums(offset = invalid As Dynamic, limit = invalid As Dynamic,
     query = {
         recursive: "true"
         includeitemtypes: "MusicAlbum"
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres"
+        fields: "ItemCounts,PrimaryImageAspectRatio,DateCreated,Overview,Genres"
         sortby: "AlbumArtist,SortName"
         sortorder: "Ascending",
-		ImageTypeLimit: "1"
+	ImageTypeLimit: "1"
     }
 
     ' Filter/Sort Query
@@ -76,7 +76,7 @@ Function getMusicAlbums(offset = invalid As Dynamic, limit = invalid As Dynamic,
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
     if response <> invalid
 
         return parseItemsResponse(response, 0, "mixed-aspect-ratio-square")
@@ -100,10 +100,11 @@ Function getMusicArtists(offset = invalid As Dynamic, limit = invalid As Dynamic
     query = {
         userid: getGlobalVar("user").Id
         recursive: "true"
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres"
+	includeitemtypes: "MusicAlbum,Audio"
+        fields: "ItemCounts,ParentId,PrimaryImageAspectRatio,DateCreated,Overview,Genres"
         sortby: "SortName"
         sortorder: "Ascending",
-		ImageTypeLimit: "1"
+	ImageTypeLimit: "1"
     }
 
     if filters <> invalid
@@ -122,7 +123,7 @@ Function getMusicArtists(offset = invalid As Dynamic, limit = invalid As Dynamic
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
 
     if response <> invalid
         return parseItemsResponse(response, 0, "mixed-aspect-ratio-square")
@@ -132,6 +133,38 @@ Function getMusicArtists(offset = invalid As Dynamic, limit = invalid As Dynamic
 
 	return invalid
 
+End Function
+
+'**********************************************************
+'** Get Music Artist by name
+'**********************************************************
+
+Function getMusicArtistByName(artistName as string) As Object
+    ' URL
+    url = GetServerBaseUrl() + "/Artists/" + HttpEncode(artistName)
+
+    ' Query
+    query = {
+	name: artistName
+        userid: getGlobalVar("user").Id
+    }  
+
+    ' Prepare Request
+    request = HttpRequest(url)
+    request.ContentType("json")
+    request.AddAuthorization()
+    request.BuildQuery(query)
+
+    ' Execute Request
+    response = request.GetToStringWithTimeout(10)
+
+    if response <> invalid
+        return parseItemsResponse(response, 0, "mixed-aspect-ratio-square")
+    else
+	createDialog("Response Error!", "No Music Artists Found. (invalid)", "OK", true)
+    end if
+
+	return invalid
 End Function
 
 
@@ -148,7 +181,7 @@ Function getMusicGenres() As Object
         userid: getGlobalVar("user").Id
         recursive: "true"
         includeitemtypes: "Audio,MusicVideo"
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres"
+        fields: "ItemCounts,PrimaryImageAspectRatio,DateCreated,Overview,Genres"
         sortby: "SortName"
         sortorder: "Ascending"
     }
@@ -160,7 +193,7 @@ Function getMusicGenres() As Object
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
     if response <> invalid
 
         return parseItemsResponse(response, 0, "mixed-aspect-ratio-portrait")
@@ -188,7 +221,7 @@ Function musicmetadata_artist_albums(artistName As String) As Object
         artists: artistName
         recursive: "true"
         includeitemtypes: "MusicAlbum"
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres"
+        fields: "ItemCounts,PrimaryImageAspectRatio,DateCreated,Overview,Genres"
         sortby: "SortName"
         sortorder: "Ascending",
 		ImageTypeLimit: "1"
@@ -201,7 +234,7 @@ Function musicmetadata_artist_albums(artistName As String) As Object
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
     if response <> invalid
 
         return parseItemsResponse(response, 0, "arced-square")
@@ -229,7 +262,7 @@ Function musicmetadata_genre_albums(genreName As String) As Object
         genres: genreName
         recursive: "true"
         includeitemtypes: "MusicAlbum"
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres"
+        fields: "ItemCounts,PrimaryImageAspectRatio,DateCreated,Overview,Genres"
         sortby: "SortName"
         sortorder: "Ascending",
 		ImageTypeLimit: "1"
@@ -242,7 +275,7 @@ Function musicmetadata_genre_albums(genreName As String) As Object
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
     if response <> invalid
 
         return parseItemsResponse(response, 0, "arced-square")
@@ -265,11 +298,11 @@ Function musicmetadata_studio_albums(StudioName As String) As Object
 
     ' Query
     query = {
+	studios: studioName,
         IncludeItemTypes: "MusicAlbum",
-        fields: "PrimaryImageAspectRatio,DateCreated,Overview,Genres",
+        fields: "ItemCounts,PrimaryImageAspectRatio,DateCreated,Overview,Genres",
         sortby: "SortName",
         sortorder: "Ascending",
-	studios: studioName,
 	ImageTypeLimit: "1"
     }
 
@@ -280,7 +313,7 @@ Function musicmetadata_studio_albums(StudioName As String) As Object
     request.BuildQuery(query)
 
     ' Execute Request
-    response = request.GetToStringWithTimeout(10)
+    response = request.GetToStringWithTimeout(20)
     if response <> invalid
 
         return parseItemsResponse(response, 0, "arced-square")
@@ -451,7 +484,7 @@ Function musicmetadata_refill(items as object) As Object
 	request.ContentType("json")
 	request.AddAuthorization()
 	' Execute Request
-	response = request.GetToStringWithTimeout(10)
+	response = request.GetToStringWithTimeout(20)
 	if response <> invalid	
 		container = parseItemsResponse(response, 0, "list")
 		items = container.items

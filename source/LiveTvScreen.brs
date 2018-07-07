@@ -4,6 +4,8 @@
 
 Function createLiveTvChannelsScreen(viewController as Object) As Object
 
+	imageType      = (firstOf(RegUserRead("LiveTVImageType"), "1")).ToInt()
+
 	names = ["Channels"]
 	keys = ["0"]
 
@@ -11,58 +13,76 @@ Function createLiveTvChannelsScreen(viewController as Object) As Object
 	loader.getUrl = getLiveTvChannelsScreenUrl
 	loader.parsePagedResult = parseLiveTvChannelsScreenResult
 
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
+	if imageType = 0 then
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
+	else
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
+	end If
 
-    screen.SetDescriptionVisible(true)
-
+	screen.baseActivate = screen.Activate
+	screen.Activate = LiveTVScreenActivate
+	screen.displayDescription = (firstOf(RegUserRead("LiveTVDescription"), "1")).ToInt()
+	screen.createContextMenu = LiveTVScreenCreateContextMenu
 	return screen
 End Function
 
 Function getLiveTvChannelsScreenUrl(row as Integer, id as String) as String
 
-    ' URL
-    url = GetServerBaseUrl() + "/LiveTv/Channels?userId=" + getGlobalVar("user").Id
+	' URL
+	url = GetServerBaseUrl() + "/LiveTv/Channels?userId=" + getGlobalVar("user").Id
 
-    return url
+	return url
 
 End Function
 
 Function parseLiveTvChannelsScreenResult(row as Integer, id as string, startIndex as Integer, json as String) as Object
 
-    return parseLiveTvChannelsResult(json)
+	return parseLiveTvChannelsResult(json)
 
 End Function
+
+Sub LiveTVScreenActivate(priorScreen)
+
+	imageType      = (firstOf(RegUserRead("LiveTVImageType"), "1")).ToInt()
+	displayDescription = (firstOf(RegUserRead("LiveTVDescription"), "1")).ToInt()
+
+	
+	if imageType = 0 then
+		gridStyle = "mixed-aspect-ratio"
+	else
+		gridStyle = "two-row-flat-landscape-custom"
+	end If
+
+	m.baseActivate(priorScreen)
+
+	if gridStyle <> m.gridStyle or displayDescription <> m.displayDescription then
+		m.displayDescription = displayDescription
+		m.gridStyle = gridStyle
+		m.DestroyAndRecreate()
+	end if
+
+End Sub
 
 '**********************************************************
 '** createLiveTvProgramsScreen
 '**********************************************************
 
 Function createLiveTvProgramsScreen(viewController as Object, channel As Object) As Object
-
-    screen = CreateListScreen(viewController)
-
-    programResult = getLiveTvPrograms(channel.Id)
-    screen.SetContent(programResult.Items)
-
+	screen = CreateListScreen(viewController)
+	programResult = getLiveTvPrograms(channel.Id)
+	screen.SetContent(programResult.Items)
 	index = getOnAirIndex(programResult.Items)
 	if index = -1 then index = 0
-
-    screen.SetFocusedItem(index)
-
+	screen.SetFocusedItem(index)
 	return screen
 End Function
 
 Function getOnAirIndex(items as Object) as Integer
-
-    index = 0
-
-    for each i in items
-	
-        if isProgramOnAir(i) = true then return index
-		
+	index = 0
+	for each i in items
+		if isProgramOnAir(i) = true then return index
 		index = index + 1
-    end for
-		
+	end for
 	return -1
 End Function
 
@@ -77,19 +97,19 @@ Function isProgramOnAir(item as Object) As Boolean
 	
 	if startDateString = invalid or endDateString = invalid then return false
 	
-    nowTime = CreateObject("roDateTime")
-    nowTime.ToLocalTime()
-    nowTimeSeconds = nowTime.AsSeconds()
+	nowTime = CreateObject("roDateTime")
+	nowTime.ToLocalTime()
+	nowTimeSeconds = nowTime.AsSeconds()
 
-    startTime = CreateObject("roDateTime")
-    startTime.FromISO8601String(startDateString)
-    startTime.ToLocalTime()
+	startTime = CreateObject("roDateTime")
+	startTime.FromISO8601String(startDateString)
+	startTime.ToLocalTime()
 
-    endTime = CreateObject("roDateTime")
-    endTime.FromISO8601String(endDateString)
-    endTime.ToLocalTime()
+	endTime = CreateObject("roDateTime")
+	endTime.FromISO8601String(endDateString)
+	endTime.ToLocalTime()
 
-    return nowTime.AsSeconds() >= startTime.AsSeconds() And nowTimeSeconds < endTime.AsSeconds()
+	return nowTime.AsSeconds() >= startTime.AsSeconds() And nowTimeSeconds < endTime.AsSeconds()
 	
 End Function
 
@@ -100,7 +120,7 @@ End Function
 Function createLiveTvGuideScreen(viewController as Object) as Object
 
 	limit = 3
-	supporterLimit = 80
+	supporterLimit = 100
 	
 	if IsActiveSupporter() then
 		limit = supporterLimit
@@ -116,7 +136,8 @@ Function createLiveTvGuideScreen(viewController as Object) as Object
 		RegUserWrite("displayedGuideInfo", "1")
 		
 	end if
-	
+
+	imageType      = (firstOf(RegUserRead("LiveTVImageType"), "1")).ToInt()
 	names = []
 	keys = []
 	
@@ -129,27 +150,31 @@ Function createLiveTvGuideScreen(viewController as Object) as Object
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getProgramsForChannelUrl
 	loader.parsePagedResult = parseProgramsForChannelResult
-
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
-
-    screen.SetDescriptionVisible(true)
-
+	if imageType = 0 then
+        	screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
+	else
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
+	end If
+	screen.displayDescription = (firstOf(RegUserRead("LiveTVDescription"), "1")).ToInt()
+	screen.baseActivate = screen.Activate
+	screen.Activate = LiveTVScreenActivate
+	screen.createContextMenu = LiveTVScreenCreateContextMenu
 	return screen
 End Function
 
 Function getProgramsForChannelUrl(row as Integer, id as String) as String
 
-    ' URL
-    url = GetServerBaseUrl() + "/LiveTv/Programs?ChannelIds=" + id + "&HasAired=false&UserId=" + getGlobalVar("user").Id
+	' URL
+	url = GetServerBaseUrl() + "/LiveTv/Programs?ChannelIds=" + id + "&HasAired=false&UserId=" + getGlobalVar("user").Id
 
-    return url
+	return url
 
 End Function
 
 Function parseProgramsForChannelResult(row as Integer, id as string, startIndex as Integer, json as String) as Object
 
 	'return parseItemsResponse(json, 0, "two-row-flat-landscape-custom")
-    return parseLiveTvProgramsResponse(json)
+    	return parseLiveTvProgramsResponse(json)
 
 End Function
 
@@ -159,16 +184,23 @@ End Function
 
 Function createLiveTvRecordingGroupsScreen(viewController as Object, group As Object) As Object
 
+	imageType      = (firstOf(RegUserRead("LiveTVImageType"), "1")).ToInt()
 	names = ["Recordings"]
 	keys = [group.Id]
 
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getLiveTvRecordingGroupsScreenUrl
 	loader.parsePagedResult = parseLiveTvRecordingGroupsScreenResult
+	if imageType = 0 then
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
+	else
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
+	End If
+	screen.displayDescription = (firstOf(RegUserRead("LiveTVDescription"), "1")).ToInt()
+	screen.baseActivate = screen.Activate
+	screen.Activate = LiveTVScreenActivate
 
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
-
-    screen.SetDescriptionVisible(true)
+	screen.createContextMenu = LiveTVScreenCreateContextMenu
 
 	return screen
 
@@ -176,26 +208,26 @@ End Function
 
 Function getLiveTvRecordingGroupsScreenUrl(row as Integer, id as String) as String
 
-    ' URL
-    url = GetServerBaseUrl() + "/LiveTv/Recordings?GroupId=" + id
+	' URL
+	url = GetServerBaseUrl() + "/LiveTv/Recordings?GroupId=" + id
 
-    ' Query
-    query = {
-        UserId: getGlobalVar("user").Id
-        IsInProgress: "false"
-    }
+	' Query
+	query = {
+		UserId: getGlobalVar("user").Id
+		IsInProgress: "false"
+	}
 
 	for each key in query
 		url = url + "&" + key +"=" + HttpEncode(query[key])
 	end for
 
-    return url
+	return url
 
 End Function
 
 Function parseLiveTvRecordingGroupsScreenResult(row as Integer, id as string, startIndex as Integer, json as String) as Object
 
-    return parseLiveTvRecordingsResponse(json, "recordinggroup")
+    	return parseLiveTvRecordingsResponse(json, "recordinggroup")
 
 End Function
 
@@ -206,19 +238,23 @@ End Function
 
 Function createLiveTvRecordingsScreen(viewController as Object) As Object
 
+	imageType      = (firstOf(RegUserRead("LiveTVImageType"), "1")).ToInt()
 	names = ["Latest Recordings", "All Recordings"]
 	keys = ["0", "1"]
 
 	loader = CreateObject("roAssociativeArray")
 	loader.getUrl = getLiveTvRecordingsScreenUrl
 	loader.parsePagedResult = parseLiveTvRecordingsScreenResult
-
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
-
-    screen.SetDescriptionVisible(true)
-
+	if imageType = 0 then
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "mixed-aspect-ratio")
+	else
+		screen = createPaginatedGridScreen(viewController, names, keys, loader, "two-row-flat-landscape-custom")
+	end If
+	screen.displayDescription = (firstOf(RegUserRead("LiveTVDescription"), "1")).ToInt()
+	screen.baseActivate = screen.Activate
+	screen.Activate = LiveTVScreenActivate
+	screen.createContextMenu = LiveTVScreenCreateContextMenu
 	return screen
-
 End Function
 
 Function getLiveTvRecordingsScreenUrl(row as Integer, id as String) as String
@@ -261,5 +297,17 @@ Function parseLiveTvRecordingsScreenResult(row as Integer, id as string, startIn
 		return parseLiveTvRecordingGroupResponse(json)
 
 	end if
+
+End Function
+
+Function LiveTVScreenCreateContextMenu()
+	
+	options = {
+		settingsPrefix: "LiveTV"
+		showSortOrder: false
+	}
+	createContextMenuDialog(options)
+
+	return true
 
 End Function
