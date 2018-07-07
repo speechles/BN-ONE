@@ -53,17 +53,17 @@ Sub audioSetupButtons()
 	m.ClearButtons()
 	if NOT m.IsPlayable then return
 	if m.Playstate = 2 then
-		m.AddButton("Pause Playing", "pause")
-		m.AddButton("Stop Playing", "stop")
+		m.AddButton("Pause", "pause")
+		m.AddButton("Stop", "stop")
 	else if m.Playstate = 1 then
-		m.AddButton("Resume Playing", "resume")
-		m.AddButton("Stop Playing", "stop")
+		m.AddButton("Resume", "resume")
+		m.AddButton("Stop", "stop")
 	else
-		m.AddButton("Start Playing", "play")
+		m.AddButton("Start/Play", "play")
 	end if
 	if m.Context.Count() > 1 then
-		m.AddButton("Next Song", "next")
-		m.AddButton("Previous Song", "prev")
+		m.AddButton("Next", "next")
+		m.AddButton("Previous", "prev")
 	end if
 	if m.metadata.UserRating = invalid then
 		m.metadata.UserRating = 0
@@ -79,7 +79,7 @@ Sub audioSetupButtons()
 			m.AddButton("Mark as Favorite", "markfavorite")
 		end if
 	end if
-	m.AddButton("More...", "more")
+	m.AddButton("More ...", "more")
 End Sub
 
 Sub audioGetMediaDetails(content)
@@ -151,9 +151,15 @@ Function audioHandleMessage(msg) As Boolean
 				end if
 				If AudioPlayer().Context <> invalid
 					dialog.SetButton("jump", "-> Go to the Track List ("+tostr(AudioPlayer().Context.count())+" tracks)")
+					If AudioPlayer().isPlaying
+						artistName = firstOf(AudioPlayer().Context[AudioPlayer().CurIndex].artistName, "")
+						if artistName <> ""
+							dialog.SetButton("goto", "-> Go to " + artistName)
+						end if
+					end if
 					dialog.SetButton("clear", "Clear the Track List ("+tostr(AudioPlayer().Context.count())+" tracks)")
 				end if
-				dialog.SetButton("rate", "_rate_")
+				dialog.SetButton("rate ...", "_rate_")
 				dialog.SetButton("close", "Close This Window")
 				dialog.HandleButton = audioDialogHandleButton
 				dialog.ParentScreen = m
@@ -174,12 +180,11 @@ Function audioHandleMessage(msg) As Boolean
 				if m.GotoNextItem() player.Next()
 			else if button = 8 ' prev
 				if m.GotoPrevItem() player.Prev()
-	    		Else If button = 4 and item.length <> invalid ' left
+	    		Else If button = 4 and item.canSeek ' left
 				if player.IsPlaying player.Seek(-5000, true)
-	    		Else If button = 5 and item.length <> invalid ' right
+	    		Else If button = 5 and item.canSeek ' right
 				if player.IsPlaying player.Seek(5000, true)
            		End If
-			m.SetupButtons()
 		end if
 	else if type(msg) = "roAudioPlayerEvent"
 		if player.ContextScreenID = m.ScreenID then
@@ -256,14 +261,27 @@ Function audioDialogHandleButton(command, data) As Boolean
 			player.SetContext(obj.Context, obj.CurIndex, obj, false)
 		end if
 	else if command = "loop" then
-		if player.Repeat = 2 then
-			m.SetButton(command, "Loop: Off")
+		'if player.Repeat = 2 then
+			'm.SetButton(command, "Loop: Off")
 			player.SetRepeat(0)
-		else
-			m.SetButton(command, "Loop: On")
-			player.SetRepeat(2)
-		end if
+		'else
+			'm.SetButton(command, "Loop: On")
+			'player.SetRepeat(2)
+		'end if
 		m.Refresh()
+	else if command = "goto"
+		m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
+		artistName = firstOf(AudioPlayer().Context[AudioPlayer().CurIndex].shortdescriptionline2, "")
+		if artistName <> ""
+   			loadingDialog = CreateObject("roOneLineDialog")
+    			loadingDialog.SetTitle("Getting "+artistName)
+    			loadingDialog.ShowBusyAnimation()
+    			loadingDialog.Show()
+        		dummyItem = getMusicArtistByName(artistName)
+        		GetViewController().CreateScreenForItem(dummyItem.items, 0, ["",artistName])
+    			loadingDialog.close()
+		end if
+		return true
 	else if command = "clear" then
 		if AudioPlayer().IsPlaying
 			Audioplayer().Stop()
@@ -275,6 +293,7 @@ Function audioDialogHandleButton(command, data) As Boolean
 		obj.refreshOnActivate = true
 		return true
 	else if command = "jump"
+		m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
 		dummyItem = CreateObject("roAssociativeArray")
 		dummyItem.ContentType = "MusicList"
 		dummyItem.Key = "List"

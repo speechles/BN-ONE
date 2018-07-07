@@ -91,7 +91,7 @@ End Sub
 
 Sub dialogShow(blocking=false)
     if m.Facade <> invalid then
-        m.ScreensToClose.Unshift(m.Facade)
+        'm.ScreensToClose.Unshift(m.Facade)
     end if
 
     m.ScreenName = "Dialog: " + tostr(m.Title)

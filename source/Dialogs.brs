@@ -47,10 +47,8 @@ Sub createContextMenuDialog(options as Object, useFacade = true)
 	if options.filterOptions <> invalid then
 		dlg.SetButton("filter", "+ Filter By: " + options.filterOptions[filterBy])
 	end if
-	
-	if  sortBy >= options.sortOptions.count() then sortBy = 0
-
 	if options.sortOptions <> invalid then
+		if  sortBy >= options.sortOptions.count() then sortBy = 0
 		dlg.SetButton("sortby", "+ Sort By: " + options.sortOptions[sortBy])
 	end if
 
@@ -58,7 +56,7 @@ Sub createContextMenuDialog(options as Object, useFacade = true)
 		dlg.SetButton("sortorder", "+ Sort Order: " + sortOrderOptions[sortOrder])
 	end if
     
-	dlg.SetButton("view", "Change View Style")
+	dlg.SetButton("view", "Change View Style ...")
 	musicstop = FirstOf(GetGlobalVar("musicstop"),"0")
 	if AudioPlayer().Context <> invalid and musicstop = "0"
 		dlg.SetButton("nowplaying", "-> Go To Now Playing")
@@ -71,28 +69,26 @@ Sub createContextMenuDialog(options as Object, useFacade = true)
 	dlg.Show(true)
 	returned = dlg.Result
 
+	GetGlobalAA().AddReplace("ContextReturn", returned)
+
     if returned = "filter"
         returned = createOptionsDialog("+ Filter By", options.filterOptions)
         if returned <> invalid then RegUserWrite(options.settingsPrefix + "FilterBy", returned)
         createContextMenuDialog(options, false)
-	return
 
     else if returned = "sortby"
         returned = createOptionsDialog("+ Sort By", options.sortOptions)
         if returned <> invalid then RegUserWrite(options.settingsPrefix + "SortBy", returned)
         createContextMenuDialog(options, false)
-	return
 
     else if returned = "sortorder"
         returned = createOptionsDialog("+ Sort Order", sortOrderOptions)
         if returned <> invalid then RegUserWrite(options.settingsPrefix + "SortOrder", returned)
         createContextMenuDialog(options, false)
-	return
 
     else if returned = "view"
         createContextViewMenuDialog(options)
         createContextMenuDialog(options, false)
-	return
 
     else if returned = "nowplaying"
 	m.ViewController.PopScreen(m.ViewController.screens[m.ViewController.screens.Count() - 1])
@@ -134,11 +130,10 @@ Sub createContextMenuDialog(options as Object, useFacade = true)
 
     else if returned = "close"
 	' this dialog auto-closes
-    end if
-
 	if facade <> invalid then
 		facade.Close()
 	end if
+    end if
 
 End Sub
 
@@ -158,9 +153,18 @@ Function createOptionsDialog(title, options, startIndex = 0)
 	return dlg.Result
 End Function
 
-Sub createContextViewMenuDialog(options as Object)
+Sub createContextViewMenuDialog(options as Object, useFacade = true) 
+
+	facade = invalid
+
+	if useFacade = true then
+		facade = CreateObject("roGridScreen")
+		facade.Show()
+	end if
+
     dlg = createBaseDialog()
-    dlg.Title = "Change Your View Style"
+    settingtype = UCase(options.settingsPrefix)
+    dlg.Title = "Change Your "+settingtype+" View Style"
 
     ' Get Saved Options
     imageStyleOptions = ["Poster", "Thumb", "Backdrop"]
@@ -176,7 +180,7 @@ Sub createContextViewMenuDialog(options as Object)
     dlg.SetButton("enhance", "Enhanced Descriptions: " + displayOptions[enhancedDescription])
     dlg.SetButton("details", "Detailed Statistics: " + displayOptions[DetailStats])
 
-    dlg.SetButton("close", "Close this Window")
+    dlg.SetButton("close2", "Close this Window")
 
     dlg.Show(true)
 
@@ -185,26 +189,28 @@ Sub createContextViewMenuDialog(options as Object)
     if result = "image"
         result = createOptionsDialog("Choose an Image Style", imageStyleOptions)
         if result <> invalid then RegUserWrite(options.settingsPrefix + "ImageType", result)
-
-        createContextViewMenuDialog(options)
+        createContextViewMenuDialog(options, true)
 		
     else if result = "info"
         result = showContextViewMenuYesNoDialog("Display Info Box?")
         if result <> invalid then RegUserWrite(options.settingsPrefix + "Description", result)
-
-        createContextViewMenuDialog(options)
+        createContextViewMenuDialog(options, true)
 
     else if result = "enhance"
         result = showContextViewMenuYesNoDialog("Use Enhanced Descriptions?")
         if result <> invalid then RegUserWrite("prefTwoDesc", result)
-
-        createContextViewMenuDialog(options)
+        createContextViewMenuDialog(options, true)
 
     else if result = "details"
         result = showContextViewMenuYesNoDialog("Use Detailed Statistics?")
         if result <> invalid then RegUserWrite("prefDetailStats", result)
+        createContextViewMenuDialog(options, true)
 
-        createContextViewMenuDialog(options)
+    else if result = "close2"
+	' dlg.close() done automatically
+	if facade <> invalid then
+		facade.Close()
+	end if
     end if
 
 End Sub

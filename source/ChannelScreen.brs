@@ -8,8 +8,8 @@ Function createChannelScreen(viewController as Object, item As Object) As Object
     contextMenuType = "folders"
     'm.contextMenuType = contextMenuType
 
-	names = [item.title,"Favorite "+tostr(item.title)]
-	keys = ["0"+tostr(item.Id), "1"+tostr(item.Id)]
+	names = [item.title]
+	keys = ["0"+tostr(item.Id)]
     	'names = [item.Title + " (* Options)"]
     	'keys = [item.Id]
   
@@ -28,7 +28,7 @@ Function createChannelScreen(viewController as Object, item As Object) As Object
 		gridStyle = "two-row-flat-landscape-custom"
     End If
 
-    screen = createPaginatedGridScreen(viewController, names, keys, loader, gridstyle)
+    screen = createPaginatedGridScreen(viewController, names, keys, loader, gridstyle, 8, 20)
 
     screen.displayDescription = 0
 
@@ -124,7 +124,7 @@ Function getChannelItemsQuery(row as Integer, settingsPrefix as String, contentT
 		else
 			query.AddReplace("SortBy", "SortName")
 		end if
-
+	
 		if sortOrder = 1
 			query.AddReplace("SortOrder", "Descending")
 		end if
@@ -134,6 +134,7 @@ Function getChannelItemsQuery(row as Integer, settingsPrefix as String, contentT
 		if row = 1 then query.AddReplace("Filters", "IsFavorite")
 	end if
 
+	query.AddReplace("Fields","Overview")
 	return query
 
 End Function
@@ -147,37 +148,33 @@ Function getChannelScreenUrl(row as Integer, id as String) as String
 
     ' Query
     'query = getChannelItemsQuery(row, m.settingsPrefix, m.contentType)
-
+	query = {}
     'if row = 0
+
         if channel.ChannelId <> invalid
             url = url  + "/Channels/" + HttpEncode(channel.ChannelId) + "/Items?userId=" + getGlobalVar("user").Id
-        'else
-            'url = url  + "/Channels/" + HttpEncode(channel.Id) + "/Items?userId=" + getGlobalVar("user").Id
-        'end if
-        
-        ' Query
-        query = {
-            fields: "Overview,PrimaryImageAspectRatio"
-        }
+        else
+            url = url  + "/Channels/" + HttpEncode(channel.Id) + "/Items?userId=" + getGlobalVar("user").Id
+        end if
 
 	filters = getChannelItemsQuery(row, m.settingsPrefix, m.contentType)
 
     	if filters <> invalid
-        	query = AddToQuery(query, filters)
+       		query = AddToQuery(query, filters)
     	end if
 
         if channel.ChannelId <> invalid
             q = { folderid: channel.Id }
             query.Append(q)
         end if
-    end If
+
+
+
+    'end If
     
     for each key in query
         url = url + "&" + key +"=" + HttpEncode(query[key])
     end for
-    
-    print "Channel url: " + url
-
     return url
 
 End Function
@@ -197,7 +194,7 @@ Function ChannelScreenCreateContextMenu()
 		options = {
 			settingsPrefix: "channel"
 			sortOptions: ["Name", "Date Added", "Date Played", "Release Date", "Random", "Play Count", "Critic Rating", "Community Rating", "Budget", "Revenue"]
-			filterOptions: ["None", "Unplayed", "Played"]
+			filterOptions: ["None", "Unplayed", "Played", "Resumable"]
 			showSortOrder: true
 		}
 		createContextMenuDialog(options)

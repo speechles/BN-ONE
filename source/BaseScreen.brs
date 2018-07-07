@@ -31,6 +31,7 @@ End Function
 Sub baseActivate(priorScreen)
 	' Called when the screen becomes active again, after whatever was opened
 	' after it has been popped.
+	if m.facade <> invalid then return
 	if m.popOnActivate then
 		m.ViewController.PopScreen(m)
 	else if m.closeOnActivate then
@@ -59,5 +60,8 @@ Function baseHandleMessage(msg) As Boolean
 End Function
 
 Sub baseStopAudioPlayer()
-    	AudioPlayer().Stop()
+	NoStop = FirstOf(RegRead("prefStopThemeMusic"),"0")
+	if NoStop = "1"
+    		AudioPlayer().Stop()
+	end if
 End Sub

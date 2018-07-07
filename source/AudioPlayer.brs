@@ -83,21 +83,33 @@ Function audioPlayerHandleMessage(msg) As Boolean
         handled = true
         item = m.Context[m.CurIndex]
         if msg.isRequestSucceeded() then
-            Debug("Playback of single song completed")
+            Debug("Playback of single track completed")
             ' Send an analytics event, but not for theme music
             if m.ContextScreenID <> invalid then
                 amountPlayed = m.GetPlaybackProgress()
                 Debug("Sending analytics event, appear to have listened to audio for " + tostr(amountPlayed) + " seconds")
 		m.reportPlayback("stop")
             end if
-            if m.Repeat <> 1 then
+            'if m.repeat < 2 then
                 maxIndex = m.Context.Count() - 1
                 newIndex = m.CurIndex + 1
                 if newIndex > maxIndex then newIndex = 0
                 m.CurIndex = newIndex
-            end if
+            'end if
         else if msg.isRequestFailed() then
             Debug("Audio playback failed")
+	    mess = msg.GetMessage()
+	    name = ""
+	    if item.shortdescriptionline2 <> "" and item.shortdescriptionline2 <> invalid
+		name = name + item.shortdescriptionline2
+	    end if
+	    if name <> ""
+		name = name + " - "
+	    end if
+	    if item.shortdescriptionline1 <> "" and item.shortdescriptionline1 <> invalid
+		name = name + item.shortdescriptionline1
+	    end if
+	    createDialog("Audio Player Error!", "Cannot Play Audio: " + name + chr(10)+chr(10)+mess, "OK", true)
             m.IgnoreTimelines = false
             maxIndex = m.Context.Count() - 1
             newIndex = m.CurIndex + 1
@@ -118,7 +130,7 @@ Function audioPlayerHandleMessage(msg) As Boolean
                 NowPlayingManager().SetControllable("music", "skipPrevious", (m.CurIndex > 0 OR m.Repeat = 2))
                 NowPlayingManager().SetControllable("music", "skipNext", (m.CurIndex < m.Context.Count() - 1 OR m.Repeat = 2))
             end if
-			m.reportPlayback("start")
+	    m.reportPlayback("start")
         else if msg.isStatusMessage() then
 		stat = tostr(msg.getMessage())
 		Debug("Audio player status: " + stat)
@@ -174,8 +186,8 @@ End Sub
 Sub audioPlayerPlayIndex(index as integer)
     if m.Context <> invalid then
         m.player.Stop()
-		m.player.SetNext(index)
-		m.player.Play()
+	m.player.SetNext(index)
+	m.player.Play()
     end if
 End Sub
 
@@ -196,6 +208,7 @@ Sub audioPlayerStop()
     	GetGlobalAA().AddReplace("audiostart", 0)
         m.player.Stop()
 	m.reportPlayback("stop")
+	if m.CurIndex <> invalid then HideSpeakerIcon(m,m.CurIndex)
         m.player.SetNext(m.CurIndex)
         m.IsPlaying = false
         m.IsPaused = false
@@ -270,26 +283,29 @@ Sub audioPlayerSetContext(context, contextIndex, screen, startPlayer)
 		AddAccountHeaders(m.player, item.server.AccessToken)
 	end if
 
-	if screen = invalid then
-		if firstOf(RegRead("prefThemeMusicLoop"), "no") = "yes" then
-			m.Repeat = 1
-		else
-			m.Repeat = 0
-		end if
-	else
-		pref = firstOf(RegRead("loopalbums"), "sometimes")
-		if pref = "sometimes" then
-			loop = (context.Count() > 1)
-		else
-			loop = (pref = "always")
-		end if
-		if loop then
-			m.SetRepeat(2)
-		else
-			m.SetRepeat(0)
-		end if
-	end if
-	m.player.SetLoop(m.Repeat = 2)
+	'if screen = invalid then
+	'	if firstOf(RegRead("prefThemeMusicLoop"), "no") = "yes" then
+	'		m.Repeat = 1
+	'	else
+	'		m.Repeat = 0
+	'	end if
+	'else
+	'	pref = firstOf(RegRead("loopalbums"), "sometimes")
+	'	if pref = "sometimes" then
+	'		loop = (context.Count() > 1)
+	'	else
+	'		loop = (pref = "always")
+	'	end if
+	'	if loop then
+	'		m.SetRepeat(2)
+	'	else
+	'		m.SetRepeat(0)
+	'	end if
+	'end if
+	'm.player.SetLoop(m.Repeat = 2)
+	m.Repeat = 0
+	m.SetRepeat(0)
+	m.player.SetLoop(0)
 	m.player.SetContentList(context)
 	m.IsShuffled = (screen <> invalid AND screen.IsShuffled)
 	if m.IsShuffled then
@@ -324,7 +340,7 @@ Sub audioPlayerSetContextFromItems(items, contextIndex, screen, startPlayer)
 End Sub
 
 Function normalizeAudioItems(items)
-	Debug("normalizeAudioItems")
+	Debug("normalizeAudioItems Normalizing")
 	requiresRefresh = false
 	ids = ""
 	for each item in items
@@ -336,7 +352,6 @@ Function normalizeAudioItems(items)
 			requiresRefresh = true
 		end if
 	end for
-	Debug("normalizeAudioItems ids: " + ids)
 	if requiresRefresh = true
 		url = GetServerBaseUrl()
 		userId = HttpEncode(getGlobalVar("user").Id)
@@ -361,8 +376,8 @@ Sub audioPlayerShowContextMenu()
 	if skip = "0" and AudioPlayer().Context <> invalid and musicstop = "0" then
 		dialog = createBaseDialog()
 		dialog.Title = "Now Playing"
-		dialog.Text = firstOf(m.Context[m.CurIndex].Title, "") + chr(10) + firstOf(m.Context[m.CurIndex].Artist, "")
-		if dialog.text.len() > 45 then dialog.text = left(dialog.text,45)
+		dialog.Text = firstOf(m.Context[m.CurIndex].shortdescriptionline2, "") + " - " + firstOf(m.Context[m.CurIndex].Title, "")
+		if dialog.text.len() > 65 then dialog.text = left(dialog.text,65)
 		skip = FirstOf(GetGlobalVar("AudioConflict"),"0")
 		if skip ="0"
 			dialog.SetButton("preferAudio", "* For Audio [Selected]")
@@ -374,19 +389,22 @@ Sub audioPlayerShowContextMenu()
 		if m.IsPlaying then
 			dialog.SetButton("pause", "Pause")
 		else if m.IsPaused then
-			dialog.SetButton("resume", "Play")
+			dialog.SetButton("resume", "Resume")
 		else
 			dialog.SetButton("play", "Play")
 		end if
 		dialog.SetButton("stop", "Stop")
 		if m.Context.Count() > 1 then
-			dialog.SetButton("next_track", "Next Track")
-			dialog.SetButton("prev_track", "Previous Track")
+			dialog.SetButton("next_track", "Next")
+			dialog.SetButton("prev_track", "Previous")
 		end if
-		dialog.SetButton("show", "-> Go to Now Playing")
+		if firstOf(m.Context[m.CurIndex].Artist, "") <> ""
+			dialog.SetButton("show", "-> Go to " + m.Context[m.CurIndex].shortdescriptionline2)
+		end if
+		dialog.SetButton("goto", "-> Go to Now Playing")
 		sh = GetFullItemMetadata(m.Context[m.CurIndex], false, {})
     		if sh.isFavorite
-			dialog.SetButton("removefavorite", "Remove as a Favorite")
+			dialog.SetButton("removefavorite", "Remove as Favorite")
 		else
 			dialog.SetButton("markfavorite", "Mark as a Favorite")
 		end if
@@ -414,11 +432,22 @@ Function audioPlayerMenuHandleButton(command, data) As Boolean
         obj.Next()
     else if command = "prev_track" then
         obj.Prev()
-    else if command = "show" then
+    else if command = "goto" then
         dummyItem = CreateObject("roAssociativeArray")
         dummyItem.ContentType = "audio"
         dummyItem.Key = "nowplaying"
         GetViewController().CreateScreenForItem(dummyItem, invalid, ["Now Playing"])
+    else if command = "show" then
+	artistName = firstOf(obj.Context[obj.CurIndex].shortdescriptionline2, "")
+	if artistName <> ""
+   		loadingDialog = CreateObject("roOneLineDialog")
+    		loadingDialog.SetTitle("Getting "+artistName)
+    		loadingDialog.ShowBusyAnimation()
+    		loadingDialog.Show()
+        	dummyItem = getMusicArtistByName(artistName)
+        	GetViewController().CreateScreenForItem(dummyItem.items, 0, ["",artistName])
+		loadingDialog.close()
+	end if
     else if command = "markfavorite" then
 	result = postFavoriteStatus(obj.Context[obj.CurIndex].Id, true)
 	if result then

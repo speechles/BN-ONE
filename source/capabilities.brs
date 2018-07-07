@@ -5,9 +5,12 @@
 Function getDirectPlayProfiles()
 
 	profiles = []
-	
+
 	versionArr = getGlobalVar("rokuVersion")
-	audioContainers = "mp2,mp3,wma,pcm"
+	' init audio profiles
+	audioContainers = ""
+	mp4Audio = ""
+	mkvAudio = ""
 
 	' firmware 6.1 and greater
         If CheckMinimumVersion(versionArr, [6, 1]) then
@@ -23,6 +26,14 @@ Function getDirectPlayProfiles()
 	    surroundSound = surroundSound AND audioOutput51 'AND (RegRead("fivepointone", "preferences", "1") = "1")
 	end if
 
+	device = CreateObject("roDeviceInfo")
+	audio = device.GetAudioDecodeInfo()
+	if FindMemberFunction(device, "CanDecodeVideo") <> invalid then
+		supports4kcodec = (device.CanDecodeVideo({codec: "hevc"}).result = true or device.CanDecodeVideo({codec: "vp9"}).result = true)
+	else
+		supports4kcodec = false
+	end if
+
 	' if private mode enabled disable surround sound
 	private = FirstOf(regRead("prefprivate"),"0")
 	if private = "1" then
@@ -30,38 +41,105 @@ Function getDirectPlayProfiles()
 	    	audioOutput51 = false
 	    	surroundSoundDCA = false
 	end if
-		
-	device = CreateObject("roDeviceInfo")
- 	model = left(device.GetModel(),4)
+
+	rokuTV = device.GetDisplayProperties()
+	isRokuTV = rokuTV.internal
+	if isRokuTV then debug("RokuTV Support: Enabled")
+
+	autoDDplus = firstOf(RegRead("prefddplus"), "1")
+	if autoDDplus = "1"
+		audioDDPlus = FirstOf(getGlobalVar("audioDDPlus"), false)
+	else
+		audioDDPlus = false
+	end if
 
 	' preferences
         truehd = firstOf(RegRead("truehdtest"), "0")
 	DTStoAC3 = firstOf(RegRead("prefDTStoAC3"), "0")
 	directFlash = firstOf(RegRead("prefdirectFlash"), "0")
 
-	if CheckMinimumVersion(versionArr, [5, 3]) then
-		audioContainers = audioContainers + ",flac"
-	end if
+
 	force = firstOf(regRead("prefPlayMethod"),"Auto")
+	if force <> "Auto" then
+		debug("Forcing "+force+" no capabilities required!")
+	else
 
-	if force = "Auto" then
-
-	  ' roku 4 supports apple lossless audio codec
-	  if model = "4400" then
-		audioContainers = audioContainers + ",alac"
+	  if audio.lookup("LPCM") <> invalid
+		audioContainers = audioContainers + ",raw"
+		mkvAudio = mkvAudio + ",lpcm"
+		mp4Audio = mp4Audio + ",lpcm"
 	  end if
+
+	  if audio.lookup("AAC") <> invalid
+		audioContainers = audioContainers + ",mp4,mka,m4a"
+		mkvAudio = mkvAudio + ",aac"
+		mp4Audio = mp4Audio + ",aac"
+	  end if
+
+	  if audio.lookup("MP3") <> invalid
+		audioContainers = audioContainers + ",mp3"
+		mkvAudio = mkvAudio + ",mp3"
+		mp4Audio = mp4Audio + ",mp3"
+	  end if
+
+	  if audio.lookup("MPEG2") <> invalid
+		audioContainers = audioContainers + ",mp2"
+		mkvAudio = mkvAudio + ",mp2"
+		mp4Audio = mp4Audio + ",mp2"
+	  end if
+
+	  if audio.lookup("WMA") <> invalid
+		audioContainers = audioContainers + ",wma,asf"
+		mp4Audio = mp4audio + ",wma"
+		mkvAudio = mkvAudio + ",wma"
+	  end if
+
+	  if audio.lookup("WMAPRO") <> invalid
+		mp4Audio = mp4audio + ",wmapro"
+		mkvAudio = mkvAudio + ",wmapro"
+	  end if
+
+	  ' flac and alac need version check
+	  if CheckMinimumVersion(versionArr, [5, 3]) then
+		audioContainers = audioContainers + ",wav"
+		if audio.lookup("flac") <> invalid
+			audioContainers = audioContainers + ",flac"
+			mkvAudio = mkvAudio + ",flac"
+		end if
+		if audio.lookup("alac") <> invalid
+			mp4Audio = mp4Audio + ",alac"
+			mkvAudio = mkvAudio + ",alac"
+		end if
+	  end if
+
+	  ' VORBIS is listed, but not supported yet or some weird shit
+	  ' so we can list it, just cant uncomment this.. stupid roku
+	  if audio.lookup("VORBIS") <> invalid
+		mp4Audio = mp4audio + ",vorbis"
+		mkvAudio = mkvAudio + ",vorbis"
+	  end if
+
+	  if audio.lookup("OPUS") <> invalid
+		mp4Audio = mp4audio + ",opus"
+		mkvAudio = mkvAudio + ",opus"
+	  end if
+
+	  ' strip comma off front
+	  audioContainers = right(audioContainers,audioContainers.len()-1)
 
 	  profiles.push({
 		Type: "Audio"
 		Container: audioContainers
 	  })
-	
-	  mp4Audio = "aac,mp2,mp3,pcm"
+	  debug("Supported Audio Containers: "+audioContainers)
 	
 	  if surroundSound then
 		mp4Audio = mp4Audio + ",ac3"
 	  end if
-	
+	  if audioDDPlus then
+		mp4Audio = mp4Audio + ",eac3"
+	  end if
+
 	  mp4Video = "h264,mpeg4"
 	  mp4Container = "mp4,mov,m4v"
 
@@ -71,9 +149,17 @@ Function getDirectPlayProfiles()
 	  end if
 
 	  ' roku 4 has support for hevc and vp9
-	  if model = "4400" then
+	  if supports4kcodec
 		mp4Video = mp4Video + ",hevc,vp9"
 	  end if
+
+	  ' rokuTV allows mpeg2 support
+	  if isRokuTV then
+		mp4Video = mp4Video + ",mpeg2,mpeg2video,mpeg1,mpeg1video"
+	  end if
+
+	  ' strip comma off front
+	  mp4Audio = right(mp4Audio,mp4Audio.len()-1)
 
 	  profiles.push({
 		Type: "Video"
@@ -81,13 +167,10 @@ Function getDirectPlayProfiles()
 		VideoCodec: mp4Video
 		AudioCodec: mp4Audio
 	  })
-	
-	  mkvAudio = "aac,mp2,mp3,flac,pcm"
+	  debug("Supported MP4 Containers: "+mp4Container)
+	  debug("Supported MP4 V-Codecs: "+mp4Video)
+	  debug("Supported MP4 A-Codecs: "+mp4Audio)
 
-	  if CheckMinimumVersion(versionArr, [5, 3]) then
-		mkvAudio = mkvAudio + ",flac"
-	  end if
-	
 	  if CheckMinimumVersion(versionArr, [5, 1]) then
 	
 		if surroundSound then
@@ -97,6 +180,9 @@ Function getDirectPlayProfiles()
         	if surroundSoundDCA and DTStoAC3 = "0" then
             		mkvAudio = mkvAudio + ",dca"
         	end if
+	  	if audioDDPlus then
+			mkvAudio = mkvAudio + ",eac3"
+		end if
 
         	if truehd = "1" then
             		mkvAudio = mkvAudio + ",truehd"
@@ -106,9 +192,17 @@ Function getDirectPlayProfiles()
 	  mkvVideo = "h264,mpeg4"
 
 	  ' roku 4 has support for hevc and vp9
-	  if model = "4400" then
+	  if supports4kcodec
 		mkvVideo = mkvVideo + ",hevc,vp9"
 	  end if
+
+	  ' rokuTV allows mpeg2 support
+	  if isRokuTV then
+		mkvVideo = mkvVideo + ",mpeg2,mpeg2video,mpeg1,mpeg1video"
+	  end if
+
+	  ' strip comma off front
+	  mkvAudio = right(mkvAudio,mkvAudio.len()-1)
 
           profiles.push({
 		Type: "Video"
@@ -116,6 +210,9 @@ Function getDirectPlayProfiles()
 		VideoCodec: mkvVideo
 		AudioCodec: mkvAudio
 	  })
+	  debug("Supported MKV Containers: mkv")
+	  debug("Supported MKV V-Codecs: "+mkvVideo)
+	  debug("Supported MKV A-Codecs: "+mkvAudio)
 	end if
 
 	return profiles
@@ -126,6 +223,7 @@ Function getTranscodingProfiles()
 
 	versionArr = getGlobalVar("rokuVersion")
     	device = CreateObject("roDeviceInfo")
+	audio = device.GetAudioDecodeInfo()
 	onlyh264 = firstOf(RegRead("prefonlyh264"), "1")
 	onlyAAC = firstOf(RegRead("prefonlyAAC"), "1")
 	Unknown = firstOf(RegRead("prefTransAC3"), "aac")
@@ -134,18 +232,29 @@ Function getTranscodingProfiles()
 	DefAudio = firstOf(RegRead("prefDefAudio"), "aac")
 	versionArr = getGlobalVar("rokuVersion")
 	private = FirstOf(regRead("prefprivate"),"0")
+	autoDDplus = firstOf(RegRead("prefddplus"), "1")
+	if autoDDplus = "1"
+		audioDDPlus = FirstOf(getGlobalVar("audioDDPlus"), false)
+	else
+		audioDDPlus = false
+	end if
 
 	' firmware 6.1 and greater
         If CheckMinimumVersion(versionArr, [6, 1]) then
 	    surroundSound = getGlobalVar("SurroundSound")
 	    audioOutput51 = getGlobalVar("audioOutput51")
-	    surroundSoundDCA = getGlobalVar("SurroundSoundDCA")
+	    surroundSoundDCA = getGlobalVar("audioDTS")
 	else
 	    surroundSound = SupportsSurroundSound(false, false)
 
 	    audioOutput51 = getGlobalVar("audioOutput51")
 	    surroundSoundDCA = surroundSound AND audioOutput51 'AND (RegRead("fivepointoneDCA", "preferences", "1") = "1")
 	    surroundSound = surroundSound AND audioOutput51 'AND (RegRead("fivepointone", "preferences", "1") = "1")
+	end if
+	if FindMemberFunction(device, "CanDecodeVideo") <> invalid then
+		supportshevc = (device.CanDecodeVideo({codec: "hevc"}).result = true)
+	else
+		supportshevc = false
 	end if
 
 	if private = "1" then
@@ -180,11 +289,15 @@ Function getTranscodingProfiles()
 	if onlyAAC = "0" and t <> invalid then
 	s = CreateObject("roRegex","mp3","i")
 		if s.isMatch(t) then
-			transAudio = "mp3"
+			if audio.lookup("mp3") <> invalid
+				transAudio = "mp3"
+			end if
 		else
 			s = CreateObject("roRegex","mp2","i")
 			if s.isMatch(t) then
-				transAudio = "mp2"
+				if audio.lookup("MPEG2") <> invalid
+					transAudio = "mp2"
+				end if
 			end if
 		end if
 	end if
@@ -192,37 +305,64 @@ Function getTranscodingProfiles()
 	' 2.0/5.1 codecs
 	if t <> invalid then
 
-		' aac direct-streams in case we are using ac3
+		' aac direct-stream copies in case we are using ac3
 		' respect the fourceSurround always with aac
 		s = CreateObject("roRegex","aac","i")
 		if s.isMatch(t) and forceSurround = "0" then
-			transAudio = AACconv
+			if audio.lookup("AAC") <> invalid
+				transAudio = AACconv
+			end if
 		end if
 
-		' flac direct-streams
+		' firmware check flac/alac
 		if CheckMinimumVersion(versionArr, [5, 3]) then
+			' flac direct-stream copies
 			s = CreateObject("roRegex","flac","i")
 			if s.isMatch(t) then
-				transAudio = "flac"
+				if audio.lookup("FLAC") <> invalid
+					transAudio = transAudio + ",flac"
+				end if
 			end if
+			' alac direct-stream copies
+			s = CreateObject("roRegex","alac","i")
+			if s.isMatch(t) then
+				if audio.lookup("ALAC") <> invalid
+					transAudio = transAudio + ",alac"
+				end if
+			end if
+		end if
+
+		' lpcm direct-stream copies
+		s = CreateObject("roRegex","lpcm","i")
+		if s.isMatch(t) then
+			transAudio = transAudio + ",lpcm"
 		end if
 	end if
 
 	' surround sound codecs
 	if surroundSound then
 	    if t <> invalid then
-
 		' dts/ac3/truehd direct stream as ac3
 		s = CreateObject("roRegex","dts","i")
 	        r = CreateObject("roRegex","ac3","i")
 	        q = CreateObject("roRegex","truehd","i")
-	        if q.isMatch(t) or r.isMatch(t) or s.isMatch(t) then
-            	    transAudio = "ac3"
-	        else
-
-	        end if
+		p = CreateObject("roRegex","eac3","i")
+	        if q.isMatch(t) or r.isMatch(t) 'or s.isMatch(t) or p.isMatch(t)
+			transAudio = "ac3"
+			if audioDDPlus AND p.isMatch(t)
+				transAudio = transAudio + ",eac3"
+	        	end if
+		end if
 	    end if
         end if
+
+		' vorbis cant direct-stream copies
+		'if audio.lookup("VORBIS") <> invalid and t <> invalid then
+		'	s = CreateObject("roRegex","vorbis","i")
+		'	if s.isMatch(t) then
+		'		transAudio = transAudio + ",vorbis"
+		'	end if
+		'end if
 
 	' pass in container
 	u = m.Extension
@@ -230,7 +370,7 @@ Function getTranscodingProfiles()
 	' the default
 	transVideo = "h264"
 
-	' get container
+	' h264 / mpeg4
 	if u <> invalid then
 		' mkv container with mpeg4 cannot be xvid/divx
 		r = CreateObject("roRegex","mkv","i")
@@ -245,6 +385,14 @@ Function getTranscodingProfiles()
 		end if
 	end if
 
+	' hevc
+	if t <> invalid then
+		v = CreateObject("roRegex","hevc","i")
+	        if v.isMatch(t)
+			if supportshevc then transVideo = "hevc"
+		end if
+	end if
+
 	profiles.push({
 		Type: "Video"
 		Container: "ts"
@@ -253,7 +401,8 @@ Function getTranscodingProfiles()
 		Context: "Streaming"
 		Protocol: "Hls"
 	})
-
+	debug("Transcoding V-Codec: "+transVideo)
+	debug("Transcoding A-Codec: "+transAudio)
 	return profiles
 
 End Function
@@ -261,47 +410,72 @@ End Function
 Function getCodecProfiles()
 
 	profiles = []
-
-	maxRefFrames = firstOf(getGlobalVar("maxRefFrames"), 12)
+	' deprecated ... this is set by a preference now.
+	'maxRefFrames = firstOf(getGlobalVar("maxRefFrames"), 12)
 	playsAnamorphic = firstOf(getGlobalVar("playsAnamorphic"), false)
         truehd = firstOf(RegRead("truehdtest"), "0")
 	device = CreateObject("roDeviceInfo")
-	model = left(device.GetModel(),4)
 	versionArr = getGlobalVar("rokuVersion")
 	framerate = firstOf(regRead("prefmaxframe"), "30")
 	Go4k = firstOf(RegRead("prefgo4k"), "0")
+	FourkReady = CanPlay4k()
 	Force = firstOf(RegRead("prefPlayMethod"), "Auto")
 	directFlash = firstOf(RegRead("prefdirectFlash"), "0")
 	if directFlash = "1" and framerate = "30" then
 		framerate = "31"
 	end if
+	maxlevel = firstOf(RegRead("prefmaxlevel"), "51")
+	rokuTV = device.GetDisplayProperties()
+	isRokuTV = rokuTV.internal
+	if FindMemberFunction(device, "CanDecodeVideo") <> invalid then
+		supports4kcodec = (device.CanDecodeVideo({codec: "hevc"}).result = true or device.CanDecodeVideo({codec: "vp9"}).result = true)
+	else
+		supports4kcodec = false
+	end if
+	audio = device.GetAudioDecodeInfo()
 
-	if Force = "Transcode" then
+	if left(Force,5) = "Trans" then
 		framerate = 30
 	end if
 
-	if Go4k = "0" then
+	if getGlobalVar("displayType") <> "HDTV" or firstOf(RegRead("prefreso"), "auto") = "720p"
+		maxWidth = "1280"
+		maxHeight = "720"
+	else if firstOf(RegRead("prefreso"), "auto") = "1080p"
 		maxWidth = "1920"
 		maxHeight = "1080"
 	else
-        	maxWidth = "3840"
-        	maxHeight = "2160"
+		if Go4k = "0" then
+			maxWidth = "1920"
+			maxHeight = "1080"
+		else
+        		maxWidth = "3840"
+        		maxHeight = "2160"
+		end if
 	end if
 
-        max4kWidth = "3840"
-        max4kHeight = "2160"
+	if supports4kcodec
+        	max4kWidth = "3840"
+        	max4kHeight = "2160"
+	end if
 
 	' firmware 6.1 and greater
         If CheckMinimumVersion(versionArr, [6, 1]) then
 	    surroundSound = getGlobalVar("SurroundSound")
 	    audioOutput51 = getGlobalVar("audioOutput51")
-	    surroundSoundDCA = getGlobalVar("SurroundSoundDCA")
+	    surroundSoundDCA = getGlobalVar("AudioDTS")
 	else
 	    surroundSound = SupportsSurroundSound(false, false)
 
 	    audioOutput51 = getGlobalVar("audioOutput51")
 	    surroundSoundDCA = surroundSound AND audioOutput51 'AND (RegRead("fivepointoneDCA", "preferences", "1") = "1")
 	    surroundSound = surroundSound AND audioOutput51 'AND (RegRead("fivepointone", "preferences", "1") = "1")
+	end if
+	autoDDplus = firstOf(RegRead("prefddplus"), "1")
+	if autoDDplus = "1"
+		audioDDPlus = FirstOf(getGlobalVar("audioDDPlus"), false)
+	else
+		audioDDPlus = false
 	end if
 	
 	' private listening nuke all surround sound
@@ -310,18 +484,16 @@ Function getCodecProfiles()
 		surroundsound = false
 		audioOutput51 = false
 	    	surroundSoundDCA = false
+		audioDDplus = false
 	end if
 
-	if getGlobalVar("displayType") <> "HDTV" then
-		maxWidth = "1280"
-		maxHeight = "720"
-	end if
+        MaxRef = firstOf(RegRead("prefmaxrefs"), "12")
 
 	h264Conditions = []
 	h264Conditions.push({
 		Condition: "LessThanEqual"
 		Property: "RefFrames"
-		Value: tostr(maxRefFrames)
+		Value: tostr(maxRef)
 		IsRequired: false
 	})
 	h264Conditions.push({
@@ -357,7 +529,7 @@ Function getCodecProfiles()
 	h264Conditions.push({
 		Condition: "LessThanEqual"
 		Property: "VideoLevel"
-		Value: "51"
+		Value: maxlevel
 		IsRequired: false
 	})
 	if playsAnamorphic = false Then
@@ -375,8 +547,75 @@ Function getCodecProfiles()
 		Conditions: h264Conditions
 	})
 
+	' rokuTV has ability to direct play MPEG2
+	if isRokuTV then
+
+	mpeg2Conditions = []
+	mpeg2Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Width"
+		Value: maxWidth
+		IsRequired: true
+	})
+	mpeg2Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Height"
+		Value: maxHeight
+		IsRequired: true
+	})
+	mpeg2Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "VideoFramerate"
+		Value: framerate
+		IsRequired: false
+	})
+
+	profiles.push({
+		Type: "Video"
+		Codec: "mpeg2video"
+		Conditions: mpeg2Conditions
+	})
+	profiles.push({
+		Type: "Video"
+		Codec: "mpeg2"
+		Conditions: mpeg2Conditions
+	})
+
+
+	mpeg1Conditions = []
+	mpeg1Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Width"
+		Value: maxWidth
+		IsRequired: true
+	})
+	mpeg1Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "Height"
+		Value: maxHeight
+		IsRequired: true
+	})
+	mpeg1Conditions.push({
+		Condition: "LessThanEqual"
+		Property: "VideoFramerate"
+		Value: framerate
+		IsRequired: false
+	})
+
+	profiles.push({
+		Type: "Video"
+		Codec: "mpeg1video"
+		Conditions: mpeg1Conditions
+	})
+	profiles.push({
+		Type: "Video"
+		Codec: "mpeg1"
+		Conditions: mpeg1Conditions
+	})
+	end if 'rokuTV
+
 	' roku4 has ability to direct play h265/hevc
-	if model = "4400" then
+	if supports4kcodec
 
 	hevcConditions = []
 	hevcConditions.push({
@@ -436,7 +675,7 @@ Function getCodecProfiles()
 	mpeg4Conditions.push({
 		Condition: "LessThanEqual"
 		Property: "RefFrames"
-		Value: tostr(maxRefFrames)
+		Value: tostr(maxRef)
 		IsRequired: false
 	})
 	mpeg4Conditions.push({
@@ -475,7 +714,7 @@ Function getCodecProfiles()
 		Condition: "NotEquals"
 		Property: "CodecTag"
 		Value: "DX50"
-		IsRequired: false
+		IsRequired: true
 	})
 	t = m.Extension
 	if t <> invalid then
@@ -508,39 +747,55 @@ Function getCodecProfiles()
 		Codec: "mpeg4"
 		Conditions: mpeg4Conditions
 	})
-	
-	if model = "4400" then
-		AACchannels = "6"
-	else
-		AACchannels = "2"
-	end if
 
-	profiles.push({
-		Type: "VideoAudio"
-		Codec: "aac"
-		Conditions: [{
-			Condition: "Equals"
-			Property: "IsSecondaryAudio"
-			Value: "false"
-			IsRequired: false
-		},
-		{
-			Condition: "LessThanEqual"
-			Property: "AudioChannels"
-			Value: AACchannels
-			IsRequired: true
-		}]
-	})
+	' support AAC if found
+	AACchannels = audio.lookup("AAC")
+	if AACchannels <> invalid
+		AACchannels = left(AACchannels,1)
+		if firstOf(RegRead("prefaac2"), "0") = "0" then AACchannels = "3"
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "aac"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: AACchannels
+				IsRequired: true
+			}]
+		})
+	end if
 
 	' support 7.1 Channel Dolby Digital+ if found
-	audioDDPlus = FirstOf(getGlobalVar("audioDDPlus"), false)
-	if audioDDPlus and surroundSound then
-		ac3Channels = "8"
-	else
-		ac3Channels = "6"
+	if audioDDPlus
+		EAC3channels = left(audio.lookup("DD+"),1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "eac3"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: EAC3Channels
+				IsRequired: true
+			}]
+		})
 	end if
 
-	profiles.push({
+	' support dolby digital if surround is found
+	if surroundSound
+	    AC3channels = left(audio.lookup("AC3"),1)
+	    profiles.push({
 		Type: "VideoAudio"
 		Codec: "ac3"
 		Conditions: [{
@@ -552,13 +807,242 @@ Function getCodecProfiles()
 		{
 			Condition: "LessThanEqual"
 			Property: "AudioChannels"
-			Value: ac3Channels
-			IsRequired: false
+			Value: AC3Channels
+			IsRequired: true
 		}]
-	})
+	    })
+	end if
 
+	' Support DTS pass-through
+	if surroundSoundDCA
+		if truehd = "1" then
+			dcaChannels = "8"
+		else
+			dcaChannels = left(audio.lookup("DTS"),1)
+		end if
+		profiles.push({
+		 Type: "VideoAudio"
+		 Codec: "dca"
+		 Conditions: [{
+			Condition: "Equals"
+			Property: "IsSecondaryAudio"
+			Value: "false"
+			IsRequired: false
+		 },
+		 {
+			Condition: "LessThanEqual"
+			Property: "AudioChannels"
+			Value: dcaChannels
+			IsRequired: true
+		 }]
+		})
+	end if
+
+	' FLAC and ALAC need firmware check!
+	if CheckMinimumVersion(versionArr, [5, 3]) then
+
+	  ' support FLAC if found
+	  FLACchannels = audio.lookup("FLAC")
+	  if FLACchannels <> invalid
+		FLACchannels = left(FLACchannels,1)
+	 	 profiles.push({
+			Type: "VideoAudio"
+			Codec: "flac"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: FLACchannels
+				IsRequired: true
+			}]
+	 	 })
+	  end if
+
+	  ' support ALAC if found
+	  ALACchannels = audio.lookup("ALAC")
+	  if ALACchannels <> invalid
+		ALACchannels = left(ALACchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "alac"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: ALACchannels
+				IsRequired: true
+			}]
+	 	})
+	  end if
+	end if
+
+	' support LPCM if found
+	LPCMchannels = audio.lookup("LPCM")
+	if LPCMchannels <> invalid
+		LPCMchannels = left(LPCMchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "lpcm"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: LPCMchannels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support WMA if found
+	WMAchannels = audio.lookup("WMA")
+	if WMAchannels <> invalid
+		WMAchannels = left(WMAchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "wma"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: WMAchannels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support WMAPro if found
+	WMAPchannels = audio.lookup("WMAP")
+	if WMAPchannels <> invalid
+		WMAPchannels = left(WMAPchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "wmapro"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: WMAPchannels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support MP3 if found
+	MP3channels = audio.lookup("MP3")
+	if MP3channels <> invalid
+		MP3channels = left(MP3channels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "mp3"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: MP3channels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support MP3 if found
+	MP2channels = audio.lookup("MPEG2")
+	if MP2channels <> invalid
+		MP2channels = left(MP2channels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "mp2"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: MP2channels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support VORBIS if found
+	VORBISchannels = audio.lookup("VORBIS")
+	if VORBISchannels <> invalid
+		VORBISchannels = left(VORBISchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "vorbis"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: VORBISchannels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' support OPUS if found
+	OPUSchannels = audio.lookup("OPUS")
+	if OPUSchannels <> invalid
+		OPUSchannels = left(OPUSchannels,1)
+		profiles.push({
+			Type: "VideoAudio"
+			Codec: "opus"
+			Conditions: [{
+				Condition: "Equals"
+				Property: "IsSecondaryAudio"
+				Value: "false"
+				IsRequired: false
+			},
+			{
+				Condition: "LessThanEqual"
+				Property: "AudioChannels"
+				Value: OPUSchannels
+				IsRequired: true
+			}]
+		})
+	end if
+
+	' TRUEHD pass-through test
         if truehd = "1" then
-	profiles.push({
+	  profiles.push({
 		Type: "VideoAudio"
 		Codec: "TrueHD"
 		Conditions: [{
@@ -571,19 +1055,13 @@ Function getCodecProfiles()
 			Condition: "LessThanEqual"
 			Property: "AudioChannels"
 			Value: "8"
-			IsRequired: false
+			IsRequired: true
 		}]
-	})
+	  })
 
-	if truehd = "1" then
-		dcaChannels = "8"
-	else
-		dcaChannels = "6"
-	end if
-
-	profiles.push({
+	  profiles.push({
 		Type: "VideoAudio"
-		Codec: "dca"
+		Codec: "DTS"
 		Conditions: [{
 			Condition: "Equals"
 			Property: "IsSecondaryAudio"
@@ -593,10 +1071,10 @@ Function getCodecProfiles()
 		{
 			Condition: "LessThanEqual"
 			Property: "AudioChannels"
-			Value: dcaChannels
-			IsRequired: false
+			Value: "8"
+			IsRequired: true
 		}]
-	})
+	  })
 	end if
 	
 	return profiles
@@ -664,21 +1142,52 @@ Function getSubtitleProfiles()
 
 End Function
 
-Function getDeviceProfile() 
+Function getDeviceProfile(item = invalid) 
 
 	maxVideoBitrate = firstOf(RegRead("prefVideoQuality"), "3200")
 	maxVideoBitrate = maxVideoBitrate.ToInt() * 1000
+	force = firstOf(regRead("prefPlayMethod"),"Auto")
+	if item <> invalid
+        	if item.LocationType = "Remote"
+			text = "Remote @"
+			maxVideoBitrate = firstOf(RegRead("prefremoteVideoQuality"), "3200")
+			maxVideoBitrate = maxVideoBitrate.ToInt() * 1000
+		else if item.ContentType = "Program"
+			text = "LiveTV @"
+			maxVideoBitrate = firstOf(RegRead("preflivetvVideoQuality"), "3200")
+			maxVideoBitrate = maxVideoBitrate.ToInt() * 1000
+		else
+			text = "Local @"
+		end if
+
+		if item.mediasources <> invalid and force = "Trans-DS"
+			for each mediasource in item.mediasources[0].MediaStreams
+				if mediasource.Type = "Video"
+					if lcase(mediasource.codec) = "h264"
+						if mediasource.bitrate <> invalid
+							maxVideoBitrate = mediasource.bitrate - 1
+							text = left(text,text.len()-2) + " (disabled directstream) @"
+						end if
+					end if
+				end if
+			end for
+		end if
+	else
+		text = "Primary @"
+	end if
+	debug(text + " MaxVideoBitrate: "+tostr(MaxVideoBitrate/1000)+" Kb/s")
+
 	
 	profile = {
-		MaxStaticBitrate: "40000000"
+		MaxStaticBitrate: "60000000"
 		MaxStreamingBitrate: tostr(maxVideoBitrate)
-		MusicStreamingTranscodingBitrate: "192000"
+		MusicStreamingTranscodingBitrate: "320000"
 		DirectPlayProfiles: getDirectPlayProfiles()
 		TranscodingProfiles: getTranscodingProfiles()
 		CodecProfiles: getCodecProfiles()
 		ContainerProfiles: getContainerProfiles()
 		SubtitleProfiles: getSubtitleProfiles()
-		Name: "BlueNeonNight/Roku"
+		Name: "Roku BN"
 	}
 	
 	return profile
@@ -690,12 +1199,12 @@ Function getCapabilities()
 	caps = {
 		PlayableMediaTypes: ["Audio","Video","Photo"]
 		SupportsMediaControl: true
-		SupportedCommands: ["MoveUp","MoveDown","MoveLeft","MoveRight","Select","Back","GoHome","SendString","GoToSearch","GoToSettings","DisplayContent","SetAudioStreamIndex","SetSubtitleStreamIndex"]
+		SupportedCommands: ["MoveUp","MoveDown","MoveLeft","MoveRight","Select","Back","GoHome","SendString","GoToSearch","GoToSettings","DisplayContent","SetAudioStreamIndex","SetSubtitleStreamIndex","DisplayMessage"]
 		MessageCallbackUrl: ":8324/emby/message"
 		DeviceProfile: getDeviceProfile()
 		SupportedLiveMediaTypes: ["Video"]
-		AppStoreUrl: "https://www.roku.com/channels#!details/44191/emby"
-		IconUrl: "https://raw.githubusercontent.com/wiki/MediaBrowser/Emby.Roku/Images/icon.png"
+		AppStoreUrl: "https://my.roku.com/account/add?channel=EmbyBlueNeon"
+		IconUrl: "http://ereader.kiczek.com/rokublue.png"
 	}
 	
 	return caps
