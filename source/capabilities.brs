@@ -1155,8 +1155,6 @@ Function getSubtitleProfiles()
 	})
 			
 	return profiles
-			
-	return profiles
 
 End Function
 
