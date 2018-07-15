@@ -752,7 +752,7 @@ Function getCodecProfiles()
 	AACchannels = audio.lookup("AAC")
 	if AACchannels <> invalid
 		AACchannels = left(AACchannels,1)
-		if firstOf(RegRead("prefaac2"), "0") = "0" then AACchannels = "3"
+		if firstOf(RegRead("prefaac2"), "0") = "0" then AACchannels = "2"
 		profiles.push({
 			Type: "VideoAudio"
 			Codec: "aac"
