@@ -162,6 +162,11 @@ Sub videoPlayerShow()
 			Debug("Starting to direct play video")
 		end if
 		Debug("Playback url: " + m.VideoItem.Stream.Url)
+		BreakKeyframes = FirstOf(RegRead("prefBreakKeyframes"),"false")
+		if BreakKeyframes = "true"
+			m.VideoItem.Stream.Url = m.VideoItem.Stream.Url.Replace("BreakOnNonKeyFrames=False","BreakOnNonKeyFrames=True")
+			Debug("Adjusted Playback url: " + m.VideoItem.Stream.Url)
+		end if
 		m.timelineTimer = createTimer()
 		m.timelineTimer.Name = "timeline"
 		m.timelineTimer.SetDuration(15000, true)
