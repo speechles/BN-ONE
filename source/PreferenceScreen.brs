@@ -51,6 +51,7 @@ Function handlePreferencesScreenMessage(msg) as Boolean
 					GetPreferenceVideoQuality,
 					GetPreferenceVideoQuality,
 					GetPreferenceVideoQuality,
+					GetPreferenceBreakKey,
 					GetPreferenceResolution,
 					GetPreferenceVPlayerTimeout,
 					GetPreferenceOptionsRow,
@@ -455,6 +456,17 @@ Function GetPreferenceList() as Object
 			PrefType: "list",
             ShortDescriptionLine1: "What is the maximum quality of liveTV video streams?",
             ShortDescriptionLine2: "Low values can cause transcoding!",
+            HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
+            SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
+        },
+        {
+            Title: "BreakOnNonKeyframes: " + GetSelectedPreference(GetPreferenceBreakKey(), firstOf(RegRead("prefBreakKeyframes"), "false")),
+            ShortTitle: "Break on Non Keyframes?",
+            ID: "prefBreakKeyframes",
+            ContentType: "pref",
+            PrefType: "list",
+            ShortDescriptionLine1: "Break on Non Keyframes when transcoding?",
+            ShortDescriptionLine2: "True or False"
             HDBackgroundImageUrl: viewController.getThemeImageUrl("hd-preferences-lg.png"),
             SDBackgroundImageUrl: viewController.getThemeImageUrl("sd-preferences-lg.png")
         },
@@ -2437,6 +2449,22 @@ Function GetPreferenceConvAAC() as Object
         {
             Title: "Yes",
             Id: "mp3",
+            IsDefault: false
+        }
+    ]
+    return prefOptions
+End Function
+
+Function GetPreferenceBreakKey() as Object
+    prefOptions = [
+        {
+            Title: "False [default]",
+            Id: "false",
+            IsDefault: true
+        },
+        {
+            Title: "True",
+            Id: "true",
             IsDefault: false
         }
     ]
