@@ -162,11 +162,7 @@ Sub videoPlayerShow()
 			Debug("Starting to direct play video")
 		end if
 		Debug("Playback url: " + m.VideoItem.Stream.Url)
-		BreakKeyframes = FirstOf(RegRead("prefBreakKeyframes"),"false")
-		if BreakKeyframes = "true"
-			m.VideoItem.Stream.Url = m.VideoItem.Stream.Url.Replace("BreakOnNonKeyFrames=False","BreakOnNonKeyFrames=True")
-			Debug("Adjusted Playback url: " + m.VideoItem.Stream.Url)
-		end if
+
 		m.timelineTimer = createTimer()
 		m.timelineTimer.Name = "timeline"
 		m.timelineTimer.SetDuration(15000, true)
@@ -196,6 +192,11 @@ Function videoPlayerCreateVideoPlayer(item, playOptions)
 		return invalid
 	end if
 	timeout = FirstOf(RegRead("prefvtimeout"),"30").toInt()
+	BreakKeyframes = FirstOf(RegRead("prefBreakKeyframes"),"false")
+	if BreakKeyframes = "true"
+		VideoItem.Stream.Url = VideoItem.Stream.Url.Replace("BreakOnNonKeyFrames=False","BreakOnNonKeyFrames=True")
+		Debug("Adjusted Playback to force BreakOnNonKeyFrames=True")
+	end if
 	player = CreateObject("roVideoScreen")
 	player.SetConnectionTimeout(timeout)
 	player.SetMessagePort(m.Port)
