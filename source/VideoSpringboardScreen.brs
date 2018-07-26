@@ -767,7 +767,7 @@ function createMediaInfoScreen(viewController as Object) as Object
 				end if
 				if mediasource.level <> invalid
 					l = tostr(mediasource.level)
-					level = left(l,1) + "." + right(l,1)
+					level = left(l,l.len()-1) + "." + right(l,1)
 				else
 					level = ""
 				end if
