@@ -385,10 +385,11 @@ Function getTranscodingProfiles()
 		end if
 	end if
 
+	force = firstOf(regRead("prefPlayMethod"),"Auto")
 	' hevc
 	if t <> invalid then
 		v = CreateObject("roRegex","hevc","i")
-	        if v.isMatch(t)
+	        if v.isMatch(t) and force <> "Trans-DS"
 			if supportshevc then transVideo = "hevc"
 		end if
 	end if
@@ -636,7 +637,6 @@ Function getCodecProfiles()
 		Value: "60"
 		IsRequired: false
 	})
-	
 	profiles.push({
 		Type: "Video"
 		Codec: "hevc"
@@ -1137,7 +1137,7 @@ Function getSubtitleProfiles()
 		' If Roku adds support for non-Latin characters, remove this
 		Language: "und,afr,alb,baq,bre,cat,dan,eng,fao,glg,ger,ice,may,gle,ita,lat,ltz,nor,oci,por,roh,gla,spa,swa,swe,wln,est,fin,fre,dut"
 	})
-	
+
 	profiles.push({
 		Format: "subrip"
 		Method: "External"
@@ -1179,12 +1179,12 @@ Function getDeviceProfile(item = invalid)
 		if item.mediasources <> invalid and force = "Trans-DS"
 			for each mediasource in item.mediasources[0].MediaStreams
 				if mediasource.Type = "Video"
-					if lcase(mediasource.codec) = "h264"
+					'if lcase(mediasource.codec) = "h264" or lcase(mediasource.codec) = "hevc"
 						if mediasource.bitrate <> invalid
 							maxVideoBitrate = mediasource.bitrate - 1
 							text = left(text,text.len()-2) + " (disabled directstream) @"
 						end if
-					end if
+					'end if
 				end if
 			end for
 		end if
@@ -1220,6 +1220,7 @@ Function getCapabilities()
 		DeviceProfile: getDeviceProfile()
 		SupportedLiveMediaTypes: ["Video"]
 		AppStoreUrl: "https://my.roku.com/account/add?channel=EmbyBlueNeon"
+		AppId: "dev"
 		IconUrl: "http://ereader.kiczek.com/rokublue.png"
 	}
 	
